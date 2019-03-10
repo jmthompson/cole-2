@@ -1,0 +1,5 @@
+1. Central drive entry point for the serial (and other) drivers so that drive code can assume a standard environment on entry (system direct page, etc.)
+
+2. Fix rom code to run with DBR pointing to bank $01
+
+3. set up COP entry points

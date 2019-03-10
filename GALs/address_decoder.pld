@@ -1,0 +1,26 @@
+GAL22V10
+CMD
+
+VDA A11 A12 A13 A14 A15 A16 A17 A18 A19 A20 GND
+A4 A5 A6 VPA /ROMCS /RAM1CS /RAM2CS /IO1SEL /IO2SEL /IO3SEL /IO4SEL VCC
+
+ROMCS  =  A20 * /A19 * /A18
+       + /A20 * /A19 * /A18 * /A17 * /A16 * A15 * A14 * A13 * A12 * A11
+RAM1CS = /A20 * /A19 * A18
+       + /A20 * /A19 * A17
+       + /A20 * /A19 * A16
+       + /A20 * /A19 * /A18 * /A17 * /A16 * /A15
+       + /A20 * /A19 * /A18 * /A17 * /A16 *  A15 * /A14
+       + /A20 * /A19 * /A18 * /A17 * /A16 *  A15 * /A13
+       + /A20 * /A19 * /A18 * /A17 * /A16 *  A15 * /A12
+RAM2CS = /A20 *  A19 * A18
+       + /A20 *  A19 * A17
+       + /A20 *  A19 * A16
+IO1SEL = /A20 * /A19 * /A18 * /A17 * /A16 * A15 * A14 * A13 * A12 * /A11 * /A6 * /A5 * /A4 * VDA * /VPA
+IO2SEL = /A20 * /A19 * /A18 * /A17 * /A16 * A15 * A14 * A13 * A12 * /A11 * /A6 * /A5 *  A4 * VDA * /VPA
+IO3SEL = /A20 * /A19 * /A18 * /A17 * /A16 * A15 * A14 * A13 * A12 * /A11 * /A6 *  A5 * /A4 * VDA * /VPA
+IO4SEL = /A20 * /A19 * /A18 * /A17 * /A16 * A15 * A14 * A13 * A12 * /A11 * /A6 *  A5 *  A4 * VDA * /VPA
+
+DESCRIPTION
+
+This logic decodes the address bus and provides select lines for the ROM, RAM, and I/O.

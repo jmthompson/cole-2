@@ -1,0 +1,11 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP CAD
+D COLE-2 address decode GAL
+$ENDCMP
+#
+$CMP CBD
+D COLE-2 bus decode GAL
+$ENDCMP
+#
+#End Doc Library

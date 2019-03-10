@@ -1,0 +1,48 @@
+|--------------------------------| $00/0000
+|         Base RAM (60K)         |
+|--------------------------------| $00/F000
+|         I/O Area (2K)          |
+|--------------------------------| $00/F800
+|         Boot ROM (2K)          |
+|--------------------------------| $01/0000
+|      Extended RAM (960K)       |
+|--------------------------------| $10/0000
+|       System ROM (256K)        |
+|--------------------------------| $14/0000
+|        Reserved (768K)         |
+|--------------------------------| $20/0000
+
+A21-A23 are not decoded, so this pattern will repeat for banks $20 - $FF.
+
+------
+Bank 0
+------
+
+$0000 - $00FF : Reserved for emulation mode direct page
+$0100 - $01FF : Reserved for emulation mode stack
+$0200 - $DFFF : [ unused, available for application use ]
+$E000 - $ECFF : System buffers
+$ED00 - $EDFF : System direct page
+$EE00 - $EEFF : System stack
+$EF00 - $EFFF : System vectors and misc storage
+$F000 - $F7FF : I/O (see table below)
+$E000 - $EFFF : System memory (direct page, stack, buffers)
+$F800 - $FFFF : Low ROM (boot/interrupt vectors, I/O drivers)
+
+Note that EhBASIC is considered an application and makes use of all of the
+"reserved for application use" areas.
+
+---------
+I/O Areas
+---------
+
+$00/F000 - F00F : Device #1 [ VIA ]
+$00/F010 - F01F : Device #2 [ Propeller ]
+$00/F020 - F02F : Device #3 [ UART ]
+$00/F030 - F03F : Device #4 [ Expansion #1 ]
+$00/F040 - F04F : Device #5 [ Expansion #2 ]
+$00/F050 - F05F : reserved
+$00/F060 - F06F : reserved
+$00/F070 - F07F : reserved
+
+A7-A10 are not currently decoded, so areas F000-F07F will repeat from F080 - F7FF.

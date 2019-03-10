@@ -1,0 +1,16 @@
+GAL22V10
+CBD
+
+PHI2 RWB ROMPROT /INTR1 /INTR2 /INTR3 /INTR4 NC NC NC NC GND
+NC NC /RD /WR /ROMWR /IRQ NC NC NC NC NC VCC
+
+RD = PHI2 * RWB
+WR = PHI2 * /RWB
+ROMWR = PHI2 * /RWB * /ROMPROT
+IRQ = INTR1 + INTR2 + INTR3 + INTR4
+
+DESCRIPTION
+
+This chip provides logic to decode the R/W, PHI2, and /ROMPROT signals into
+/RD, /WR, and /ROMWR. It also combines up to four interrupt sources into
+the single IRQ line for the CPU.

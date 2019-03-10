@@ -1,0 +1,342 @@
+EESchema Schematic File Version 4
+EELAYER 26 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 5 5
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L MAX1232:MAX1232CPA U?
+U 1 1 5C194923
+P 2850 4050
+AR Path="/5B7D0B8D/5C194923" Ref="U?"  Part="1" 
+AR Path="/5C1871C9/5C194923" Ref="U?"  Part="1" 
+F 0 "U?" H 3100 4650 60  0000 C CNN
+F 1 "MAX1232CPA" V 2850 4100 39  0000 C CNN
+F 2 "21-0041B_8" H 2950 4900 50  0001 L BNN
+F 3 "Maxim Integrated" H 3100 5100 50  0001 L BNN
+F 4 "SOIC-8 Maxim Integrated" H 3000 5250 50  0001 L BNN "Field4"
+F 5 "2.92 USD" H 3000 4800 50  0001 L BNN "Field5"
+F 6 "Good" H 2150 4900 50  0001 L BNN "Field6"
+F 7 "MAX1232CSA+" H 2250 5150 50  0001 L BNN "Field7"
+F 8 "IC MAX1232/SO/MAX1232CSA+ MAXIM RoHS micro AmpÃ¨re=200 V=4.5 SO8" H 1650 4600 50  0001 L BNN "Field8"
+	1    2850 4050
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5C19492A
+P 2850 3200
+AR Path="/5B7D0B8D/5C19492A" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C19492A" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 2850 3050 50  0001 C CNN
+F 1 "+5V" H 2865 3373 50  0000 C CNN
+F 2 "" H 2850 3200 50  0001 C CNN
+F 3 "" H 2850 3200 50  0001 C CNN
+	1    2850 3200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5C194930
+P 2850 4950
+AR Path="/5B7D0B8D/5C194930" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C194930" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 2850 4700 50  0001 C CNN
+F 1 "GND" H 2855 4777 50  0000 C CNN
+F 2 "" H 2850 4950 50  0001 C CNN
+F 3 "" H 2850 4950 50  0001 C CNN
+	1    2850 4950
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2850 4800 2850 4850
+Text GLabel 3750 4000 2    39   Output ~ 0
+RESB
+Wire Wire Line
+	3500 4000 3750 4000
+$Comp
+L Connector:Conn_01x02_Male J?
+U 1 1 5C194939
+P 1600 3650
+AR Path="/5B7D0B8D/5C194939" Ref="J?"  Part="1" 
+AR Path="/5C1871C9/5C194939" Ref="J?"  Part="1" 
+F 0 "J?" H 1700 3800 50  0000 C CNN
+F 1 "RESET SW" H 1400 3600 50  0000 C CNN
+F 2 "" H 1600 3650 50  0001 C CNN
+F 3 "~" H 1600 3650 50  0001 C CNN
+	1    1600 3650
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2200 3650 1800 3650
+Wire Wire Line
+	2200 4100 2000 4100
+Wire Wire Line
+	2000 4100 2000 4850
+Wire Wire Line
+	2000 4850 2850 4850
+Connection ~ 2850 4850
+Wire Wire Line
+	2850 4850 2850 4950
+Wire Wire Line
+	1800 3750 2000 3750
+Wire Wire Line
+	2000 3750 2000 4100
+Connection ~ 2000 4100
+$Comp
+L power:+5V #PWR?
+U 1 1 5C194949
+P 2100 3950
+AR Path="/5B7D0B8D/5C194949" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C194949" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 2100 3800 50  0001 C CNN
+F 1 "+5V" H 2115 4123 50  0000 C CNN
+F 2 "" H 2100 3950 50  0001 C CNN
+F 3 "" H 2100 3950 50  0001 C CNN
+	1    2100 3950
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2100 3950 2100 4000
+Wire Wire Line
+	2100 4000 2200 4000
+Text GLabel 3750 3650 2    39   Input ~ 0
+WD
+Wire Wire Line
+	3500 3650 3750 3650
+Text GLabel 3750 4100 2    39   Output ~ 0
+RES
+Wire Wire Line
+	3500 4100 3750 4100
+$Comp
+L 74xx:74HC74 U?
+U 1 1 5C194AF2
+P 6750 3850
+F 0 "U?" H 6850 4100 50  0000 C CNN
+F 1 "74AC74" H 7000 3550 50  0000 C CNN
+F 2 "" H 6750 3850 50  0001 C CNN
+F 3 "74xx/74hc_hct74.pdf" H 6750 3850 50  0001 C CNN
+	1    6750 3850
+	1    0    0    -1  
+$EndComp
+$Comp
+L 74xx:74HC74 U?
+U 2 1 5C194C70
+P 8350 3850
+F 0 "U?" H 8500 4100 50  0000 C CNN
+F 1 "74AC74" H 8600 3600 50  0000 C CNN
+F 2 "" H 8350 3850 50  0001 C CNN
+F 3 "74xx/74hc_hct74.pdf" H 8350 3850 50  0001 C CNN
+	2    8350 3850
+	1    0    0    -1  
+$EndComp
+$Comp
+L 74xx:74HC74 U?
+U 3 1 5C194CD3
+P 9400 3850
+F 0 "U?" H 9630 3896 50  0000 L CNN
+F 1 "74AC74" H 9630 3805 50  0000 L CNN
+F 2 "" H 9400 3850 50  0001 C CNN
+F 3 "74xx/74hc_hct74.pdf" H 9400 3850 50  0001 C CNN
+	3    9400 3850
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5C194D38
+P 9400 3450
+AR Path="/5B7D0B8D/5C194D38" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C194D38" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 9400 3300 50  0001 C CNN
+F 1 "+5V" H 9415 3623 50  0000 C CNN
+F 2 "" H 9400 3450 50  0001 C CNN
+F 3 "" H 9400 3450 50  0001 C CNN
+	1    9400 3450
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5C194DDE
+P 9400 4250
+AR Path="/5B7D0B8D/5C194DDE" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C194DDE" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 9400 4000 50  0001 C CNN
+F 1 "GND" H 9405 4077 50  0000 C CNN
+F 2 "" H 9400 4250 50  0001 C CNN
+F 3 "" H 9400 4250 50  0001 C CNN
+	1    9400 4250
+	1    0    0    -1  
+$EndComp
+$Comp
+L osc:Osc_8pin U?
+U 1 1 5C1956C6
+P 5450 3850
+F 0 "U?" H 5222 3850 60  0000 R CNN
+F 1 "Osc_8pin" H 5750 3450 60  0001 C CNN
+F 2 "" H 5450 3850 60  0001 C CNN
+F 3 "" H 5450 3850 60  0001 C CNN
+	1    5450 3850
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5C195712
+P 5450 4350
+AR Path="/5B7D0B8D/5C195712" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C195712" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 5450 4100 50  0001 C CNN
+F 1 "GND" H 5455 4177 50  0000 C CNN
+F 2 "" H 5450 4350 50  0001 C CNN
+F 3 "" H 5450 4350 50  0001 C CNN
+	1    5450 4350
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6450 3750 6250 3750
+Wire Wire Line
+	6250 3750 6250 4500
+Wire Wire Line
+	6250 4500 7200 4500
+Wire Wire Line
+	7200 4500 7200 3950
+Wire Wire Line
+	7200 3950 7050 3950
+Text GLabel 7450 3950 2    39   Output ~ 0
+PHI1
+Wire Wire Line
+	7200 3950 7450 3950
+Connection ~ 7200 3950
+Text GLabel 7450 3750 2    39   Output ~ 0
+PHI2
+Wire Wire Line
+	7050 3750 7450 3750
+Wire Wire Line
+	5850 3850 6450 3850
+Wire Wire Line
+	6750 4150 6750 4300
+Wire Wire Line
+	6750 4300 6350 4300
+Wire Wire Line
+	6350 4300 6350 3400
+Wire Wire Line
+	6350 3400 6750 3400
+Wire Wire Line
+	6750 3400 6750 3550
+$Comp
+L power:+5V #PWR?
+U 1 1 5C1965FA
+P 6750 3300
+AR Path="/5B7D0B8D/5C1965FA" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C1965FA" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 6750 3150 50  0001 C CNN
+F 1 "+5V" H 6765 3473 50  0000 C CNN
+F 2 "" H 6750 3300 50  0001 C CNN
+F 3 "" H 6750 3300 50  0001 C CNN
+	1    6750 3300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6750 3300 6750 3400
+Connection ~ 6750 3400
+$Comp
+L power:+5V #PWR?
+U 1 1 5C1957C0
+P 5450 3350
+AR Path="/5B7D0B8D/5C1957C0" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C1957C0" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 5450 3200 50  0001 C CNN
+F 1 "+5V" H 5465 3523 50  0000 C CNN
+F 2 "" H 5450 3350 50  0001 C CNN
+F 3 "" H 5450 3350 50  0001 C CNN
+	1    5450 3350
+	1    0    0    -1  
+$EndComp
+NoConn ~ 8650 3750
+NoConn ~ 8650 3950
+Wire Wire Line
+	7950 3750 8050 3750
+Wire Wire Line
+	8050 3850 7950 3850
+Wire Wire Line
+	7950 3400 8350 3400
+$Comp
+L power:+5V #PWR?
+U 1 1 5C1985C8
+P 8350 3300
+AR Path="/5B7D0B8D/5C1985C8" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C1985C8" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8350 3150 50  0001 C CNN
+F 1 "+5V" H 8365 3473 50  0000 C CNN
+F 2 "" H 8350 3300 50  0001 C CNN
+F 3 "" H 8350 3300 50  0001 C CNN
+	1    8350 3300
+	1    0    0    -1  
+$EndComp
+Connection ~ 8350 3400
+Wire Wire Line
+	8350 3300 8350 3400
+Wire Wire Line
+	8350 3400 8350 3550
+Wire Wire Line
+	8350 4150 8350 4300
+Wire Wire Line
+	8350 4300 7950 4300
+Wire Wire Line
+	7950 4300 7950 3850
+Connection ~ 7950 3750
+Wire Wire Line
+	7950 3750 7950 3400
+Connection ~ 7950 3850
+Wire Wire Line
+	7950 3850 7950 3750
+$Comp
+L osc:Osc_8pin U?
+U 1 1 5C2732E6
+P 5450 5800
+F 0 "U?" H 5222 5800 60  0000 R CNN
+F 1 "Osc_8pin" H 5750 5400 60  0001 C CNN
+F 2 "" H 5450 5800 60  0001 C CNN
+F 3 "" H 5450 5800 60  0001 C CNN
+	1    5450 5800
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5C2732ED
+P 5450 6300
+AR Path="/5B7D0B8D/5C2732ED" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C2732ED" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 5450 6050 50  0001 C CNN
+F 1 "GND" H 5455 6127 50  0000 C CNN
+F 2 "" H 5450 6300 50  0001 C CNN
+F 3 "" H 5450 6300 50  0001 C CNN
+	1    5450 6300
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5C2732F3
+P 5450 5300
+AR Path="/5B7D0B8D/5C2732F3" Ref="#PWR?"  Part="1" 
+AR Path="/5C1871C9/5C2732F3" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 5450 5150 50  0001 C CNN
+F 1 "+5V" H 5465 5473 50  0000 C CNN
+F 2 "" H 5450 5300 50  0001 C CNN
+F 3 "" H 5450 5300 50  0001 C CNN
+	1    5450 5300
+	1    0    0    -1  
+$EndComp
+Text GLabel 6250 5800 2    39   Output ~ 0
+SER_CLK
+Wire Wire Line
+	5850 5800 6250 5800
+$EndSCHEMATC
