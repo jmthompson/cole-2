@@ -433,7 +433,20 @@ set_memory:
 @done:  rts
 
 run_code:
-        jmp     (start_loc)
+        phk
+        longm
+        ldaw    #(@ret & $ffff)-1
+        pha
+        shortm
+        lda     start_loc+2
+        pha
+        longm
+        lda     start_loc
+        dec
+        pha
+        shortm
+        rtl
+@ret:   rts
 
 monitor_exit:
         pla                         ; pop return address of the dispatcher

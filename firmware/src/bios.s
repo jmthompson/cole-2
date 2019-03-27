@@ -10,6 +10,7 @@
         .import uart_init
         .import uart_irq
         .import serial_console_init
+        .import vga_console_init
         .import monitor_start
         .import monitor_brk
         .import monitor_nmi
@@ -306,7 +307,8 @@ sysreset:
 
         jsr     via_init
         jsr     uart_init
-        jsl     serial_console_init
+        jsl     vga_console_init
+        ;jsl     serial_console_init
 
         cli
 
