@@ -10,27 +10,22 @@ OBJ
     bus: "Bus65xx"
     text: "waitvid.80x25.c0df.driver.2048"
     font: "generic8x16-4font"
-    sid: "SIDcog"
+    SID: "SIDcog"
 
 CON
-    columns  = text#res_x / 9
-    rows     = text#res_y / font#height
-    bcnt     = columns * rows
+    vram_longs = 19200 / 4
     
-    rows_raw = (text#res_y + font#height - 1) / font#height
-    bcnt_raw = columns * rows_raw
-
 CON
     vgrp     = 2                                          ' video pin group
     vpin     = %%333_0                                    ' video pin mask
     
     video    = (vgrp << 9 | vpin) << 21
 
-    leftAudio  = 14
-    rightAudio = 15
+    leftAudioPin = 14
+    rightAudioPin = 15
 
 VAR
-    long  scrn[bcnt_raw / 2]    ' screen buffer
+    long  scrn[vram_longs]      ' screen buffer
     long  link[text#res_m]      ' mailbox
     
     long  cursor                ' text cursor
@@ -43,9 +38,11 @@ PUB main
     link[2] := @cursor * $00010001
     text.init(-1, @link{0})
 
-    sidregs := sid.start(rightAudio, leftAudio)
+    sidregs := SID.start(rightAudioPin, leftAudioPin)
+    SID.resetRegisters
 
-    bus.init(@scrn{0}, bcnt_raw * 2, @cursor, sidregs)
+    bus.init(@scrn{0}, vram_longs * 4, @cursor, sidregs)
+
 DAT
 '
 ' Each of the 256 (word) palette entries holds FG colour in the high and BG colour in the low byte. Bits 1, 8 and 9 are unused and should be 0.

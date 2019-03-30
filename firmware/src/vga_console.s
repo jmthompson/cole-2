@@ -11,26 +11,32 @@
         .import getc_seriala
         .import __SYSDP_START__
 
-        .segment "ZEROPAGE"
-
-text_color: .res    1
-cursor_x:   .res    1
-cursor_y:   .res    1
-temp:       .res    2
-
-        .segment "HIGHROM"
-
 BELL     =  $07
 LBRACKET =  '['
 
 DEFAULT_COLOR = $0F     ; white on black
 
-ROWS = 25
-COLS = 80
+ROWS      = 25
+COLS      = 80
+ROW_SIZE  = COLS * 2
+TEXT_SIZE = ROWS * ROW_SIZE
 
 vga_vram    := $f030
 vga_status  := $f031
 vga_reg     := $f031
+
+        .segment "ZEROPAGE"
+
+text_color: .res    1
+cursor_x:   .res    1
+cursor_y:   .res    1
+vram_addr:  .res    2
+
+        .segment "BUFFERS"
+
+line_buffer: .res   ROW_SIZE
+
+        .segment "HIGHROM"
 
 vga_console_init:
         lda     vga_status
@@ -86,10 +92,11 @@ vga_bell:
         rtl
 
 vga_cls:
-        ldx     #0              ; vram lo
-        lda     #0
+        ldx     #1              ; vram lo
+        lda     #<(TEXT_SIZE-1)
         jsr     set_register
         inx                     ; vram hi
+        lda     #>(TEXT_SIZE-1)
         jsr     set_register
         ldy     #ROWS
 @row:   ldx     #COLS
@@ -127,19 +134,19 @@ vga_write:
         lda     5,s
         cmp     #' '
         blt     @ctrl
-        pha
-        jsr     set_vram_ptr
-        pla
+        ldx     cursor_x
+        ldy     cursor_y
+        jsr     calc_vram_ptr
+        lda     5,s
         sta     vga_vram
         lda     text_color
         sta     vga_vram
-        jsr     advance_cursor
+        jsr     cursor_forward
         bra     @exit
 @ctrl:  cmp     #CR
-        bne     @exit
-        lda     #COLS-1
-        sta     cursor_x            ; fake being at end of line
-        jsr     advance_cursor      ; advance to start of next line
+        beq     @cr
+        cmp     #BS
+        beq     @bs
 @exit:  longm
         pld
         ply
@@ -147,18 +154,33 @@ vga_write:
         pla
         shortm
         rtl
+@cr:    lda     #COLS-1
+        sta     cursor_x            ; fake being at end of line
+        jsr     cursor_forward      ; advance to start of next line
+        bra     @exit
+@bs:    jsr     cursor_backward
+        bra     @exit
 
 cursor_on:
-        ldx     #2      ; cursor control reg
+        ldx     #3      ; cursor control reg
         lda     #7      ; cursor on, blinking underline
         jmp     set_register
 
 cursor_off:
-        ldx     #2      ; cursor control reg
+        ldx     #3      ; cursor control reg
         lda     #0      ; no cursor
         jmp     set_register
 
-advance_cursor:
+cursor_backward:
+        dec     cursor_x
+        bpl     move_cursor
+        stz     cursor_x
+        dec     cursor_y
+        bpl     move_cursor
+        stz     cursor_y
+        bra     move_cursor
+
+cursor_forward:
         inc     cursor_x
         lda     cursor_x
         cmp     #COLS
@@ -168,7 +190,9 @@ advance_cursor:
         lda     cursor_y
         cmp     #ROWS
         blt     move_cursor
-        stz     cursor_y        ; TODO scroll screen instead
+        jsr     scroll_up
+        lda     #ROWS-1
+        sta     cursor_y
         ; fall through
 
 ;;
@@ -177,49 +201,108 @@ advance_cursor:
 ; Trashes A,X
 ;
 move_cursor:
-        ldx     #3      ; cursor X register
+        ldx     #4      ; cursor X register
         lda     cursor_x
         jsr     set_register
-        ldx     #4      ; cursor Y register
+        ldx     #5      ; cursor Y register
         lda     cursor_y
         jmp     set_register
+
+read_line:
+        ldx     #0
+@loop:  lda     vga_vram
+        sta     line_buffer,x
+        inx
+        cpx     #ROW_SIZE
+        bne     @loop
+        rts
+
+write_line:
+        ldx     #0
+@loop:  lda     line_buffer,x
+        sta     vga_vram
+        inx
+        cpx     #ROW_SIZE
+        bne     @loop
+        rts
+
+blank_line:
+        ldx     #0
+        lda     text_color
+        xba
+        lda     #' '
+@loop:  sta     vga_vram
+        xba
+        sta     vga_vram
+        xba
+        inx
+        cpx     #COLS
+        bne     @loop
+        rts
+
+scroll_up:
+        ldy     #1
+@line:  ldx     #0
+        jsr     calc_vram_ptr
+        jsr     read_line
+        dey
+        ldx     #0
+        jsr     calc_vram_ptr
+        jsr     write_line
+        iny
+        iny
+        cpy     #ROWS
+        bne     @line
+        ldx     #0
+        ldy     #ROWS-1
+        jsr     calc_vram_ptr
+        jmp     blank_line
+
+;;
+; Calculate VRAM address of col/row in X/Y
+;
+; Trashes C,X
+;
+calc_vram_ptr:
+        longm
+        tya                 ; automatically sets upper byte to $00
+        asl
+        asl
+        asl
+        asl                 ; x16
+        pha
+        asl
+        asl                 ; x64
+        sta     vram_addr
+        pla
+        clc
+        adc     vram_addr   ; x16 + x64 = x80
+        sta     vram_addr   ; save row base
+        txa
+        clc
+        adc     vram_addr
+        asl                 ; x2 since each char is 2 bytes
+        sta     vram_addr
+        ldaw    #TEXT_SIZE-1
+        sec
+        sbc     vram_addr
+        sta     vram_addr
+        shortm
+        ; fall through
 
 ;;
 ; Set VRAM pointer to current cursor position
 ;
-; loc = (row * 160) + (col * 2)
+; loc = 2 * ((row * 80) + col)
 ;
 ; Trashes C, X
 ;
 set_vram_ptr:
-        longm
-        ldx     cursor_y
-        txa                 ; automatically sets upper byte to $00
-        asl
-        asl
-        asl
-        asl
-        asl                 ; x32
-        pha
-        asl
-        asl                 ; x128
-        sta     temp
-        pla
-        clc
-        adc     temp        ; x32 + x128 = x160
-        sta     temp        ; save row base
-        ldx     cursor_x
-        txa
-        asl                 ; x2 since each char is 2 bytes
-        clc
-        adc     temp
-        sta     temp
-        shortm
-        ldx     #0          ; vram ptr lo
-        lda     temp
+        ldx     #1          ; vram ptr lo
+        lda     vram_addr
         jsr     set_register
         inx                 ; vram ptr hi
-        lda     temp+1
+        lda     vram_addr+1
         ; fall through
 
 ;;
