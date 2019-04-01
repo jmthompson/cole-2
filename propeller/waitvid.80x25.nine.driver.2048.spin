@@ -2,8 +2,8 @@
 '' VGA display 80x25 (dual cog) - video driver and pixel generator
 ''
 ''        Author: Marko Lukat
-'' Last modified: 2018/12/15
-''       Version: 0.15.c0df.2
+'' Last modified: 2018/12/10
+''       Version: 0.15.nine.7
 ''
 '' long[par][0]: vgrp:[!Z]:vpin:[!Z]:addr = 2:1:8:5:16 -> zero (accepted) screen buffer    (4n)
 '' long[par][1]:                addr:addr =      16:16 -> zero (accepted) palette/font     (2n/4n)
@@ -34,8 +34,8 @@
 ''
 '' 20181124: dropped character blink mode, now uses 256 entry (hub) palette
 '' 20181127: full 9x16 support
-'' 20181213: reworked for MDA like behaviour, $C0..$DF have column duplication
-'' 20181215: sync-isolation
+'' 20181129: clean palette before use
+'' 20181206: re-introduced blink attribute
 ''
 CON
   CURSOR_ON    = %100
@@ -101,7 +101,7 @@ vsync           mov     ecnt, #13+2+(34-4)
 
                 add     fcnt, #1                ' next frame
                 cmpsub  fcnt, #36 wz            ' N frames per phase (on/off)
-        if_z    xor     rxor, rmsk              ' $FFFFFFFF vs $00000000; 70/(2*36), ~1Hz
+        if_z    rev     rcnt, #{32-}0           ' $F80000_00 vs $000000_1F; 70/(2*36), ~1Hz
         
                 cmp     locn, #0 wz             ' check cursor availability
                 mov     crs0, #0                ' default is disabled
@@ -136,13 +136,10 @@ vsync           mov     ecnt, #13+2+(34-4)
 
                 call    #load                   ' load pixels and colours for the next four lines
 
-                add     cnt, $+1                ' adjust sync point by 4 scanlines
-                long    (900*4*80000)/28322
-
-                call    #char0                  ' |
-                call    #char1                  ' |
-                call    #char0                  ' display scanlines
-                call    #char1                  ' |
+                call    #chars                  ' |
+                call    #chars                  ' |
+                call    #chars                  ' display scanlines
+                call    #char3                  ' |
 
                 add     eins, adv8              ' skip 8 scanlines
                 djnz    scnt, #:line            ' for all character scanlines
@@ -160,111 +157,94 @@ vsync           mov     ecnt, #13+2+(34-4)
 
 blank           mov     vscl, line              ' 180/720
                 waitvid sync, #%0000            ' latch blank line
-
-hsync           mov     vscl, wrap              ' |
-                waitvid sync, #%0001111110      ' horizontal sync pulse (1/6/3 reverse)
-
-                mov     vcfg, vcfg_sync         ' drive sync lines                      (&&)
-                mov     outa, #0                ' stop interfering
-                
-                mov     cnt, cnt                ' record sync point                     (**)
-                add     cnt, #9{14}+400         ' relaxed timing
-hsync_ret
+                call    #hsync
 blank_ret       ret
 
 
-char0           waitcnt cnt, #0                 ' re-sync after back porch              (**)
-
-                mov     outa, idle              ' take over sync lines
-                mov     vcfg, vcfg_norm         ' disconnect from video h/w             (&&)
-
-                movd    :one, #pix+0            ' |
+chars           movd    :one, #pix-1            ' |
                 movs    :two, #pix+0            ' |
                 movd    :two, #col+0            ' restore initial settings
 
                 mov     vscl, hvis              ' 1/9, speed up (one pixel per frame clock)
                 mov     ecnt, #80               ' character count
 
-:loop           add     :one, dst1              ' advance (pipeline)
-:one            ror     1-1, #16
+:loop           add     :one, dst1              ' advance
                 add     :two, d1s1              ' advance (pipeline)
 :two            waitvid 0-0, 1-1                ' emit pixels
+:one            ror     1-1, #10                ' %%0_cCCCC_bBBBB_aAAAA
                 djnz    ecnt, #:loop
 
-                call    #hsync
-char0_ret       ret
+' Horizontal sync embedded here due to timing constraints, only 18 clocks are allowed between waitvids.
+
+hsync           mov     vscl, wrap              ' |
+                waitvid sync, #%0001111110      ' horizontal sync pulse (1/6/3 reverse)
+                mov     cnt, cnt                ' record sync point
+hsync_ret
+chars_ret       ret
 
 
-char1           waitcnt cnt, #0                 ' re-sync after back porch              (**)
-
-                mov     outa, idle              ' take over sync lines
-                mov     vcfg, vcfg_norm         ' disconnect from video h/w             (&&)
-
-                movd    :one, #pix-80           ' |
-                movs    :two, #pix-80           ' |
+char3           movs    :two, #pix-80           ' |
                 movd    :two, #col+0            ' restore initial settings
 
                 mov     vscl, hvis              ' 1/9, speed up (one pixel per frame clock)
                 mov     ecnt, #80               ' character count
 
-:loop           add     :one, dst1              ' advance (pipeline)
-:one            ror     1-1, #16
-                add     :two, d1s1              ' advance (pipeline)
+:loop           add     :two, d1s1              ' advance (pipeline)
 :two            waitvid 0-0, 1-1                ' emit pixels
                 djnz    ecnt, #:loop
 
                 call    #hsync
-char1_ret       ret
+char3_ret       ret
 
 
 load            muxnc   flag, $                 ' preserve carry flag
 
                 movd    :pix0_0, #pix+0         ' |
-                movd    :pix1_0, #pix-80        ' re/store initial settings
+                movd    :pix3_0, #pix-80        ' re/store initial settings
                 movd    :colN_0, #col+0         ' |
 
                 movd    :pix0_1, #pix+1         ' |
-                movd    :pix1_1, #pix-79        ' |
+                movd    :pix3_1, #pix-79        ' |
                 movd    :colN_1, #col+1         ' |
 
-                mov     addr, zwei              ' current screen base
-                movi    addr, #80{units} -2     ' add magic marker
+                mov     drei, dst2              ' |
+                add     drei, eins              ' tail font address (+1024)
 
-' Fetch pixel data and colour for two characters. Only character 2n is documented.
+                mov     addr, zwei              ' current screen base
+                mov     ecnt, #40               ' loop counter
+
+' Fetch pixel data and colour.
 
 :loop           rdword  frqb, addr      {hub}   '  +0 = read ASCII + colour
 
                 ror     frqb, #7                '  +8   ASCII *2 +{0..1}
                 mov     phsb, eins              '  -4   current font address
-                rdlong  pix0, phsb      {hub}   '  +0 = four scanlines
+                rdlong  pix0, phsb      {hub}   '  +0 = three scanlines + 1 pixel
 
-                rol     frqb, #7                '  +8   restore
+                ror     frqb, #1                '  +8   ASCII *1
+                add     frqb, drei              '  -4   font tail address
+                rdbyte  pix3, frqb      {hub}   '  +0 = remaining 8 pixels
 
-                mov     drei, frqb              '  -4   working copy
-                shr     drei, #13               '  +0 = extract signature ($C0..$DF)
-                sub     addr, i2s3 wc           '  +4   advance source
-
-                and     frqb, #$FF              '  +8   palette index
+                shr     frqb, #24               '  +8   palette index
                 mov     phsb, plte              '  -4   current palette location
                 rdword  colN, phsb      {hub}   '  +0 = read palette entry
-    
-                test    colN, #1 wz             '  +8   check mode
-        if_nz   and     pix0, rxor              '  -4   modify foreground (-1/0)
-                cmp     drei, #%110 wz          '  +0 = zero: char in [$C0..$DF]
 
-        if_e    xor     pix0, h80808080         '  +4   pixel duplication 1/2
+                sub     addr, #2                '  +8   advance source
+                test    colN, #1 wz             '  -4   check mode
+                shr     pix0, #1 wc             '  +0 = extract top pixel
+                muxc    pix3, #$100             '  +4   insert top pixel
 
-                mov     pix1, pix0              '  +8   |
-                and     pix1, h00FF00FF         '  -4   scanlines 1/3
-                shr     pix0, #8                '  +0 = |
-                and     pix0, h00FF00FF         '  +4   scanlines 0/2
+        if_nz   shr     pix0, rcnt              '  +8   1: modify foreground (0/31)
+        if_nz   shr     pix3, rcnt              '  -4   1: modify foreground (0/31)
 
-        if_e    add     pix0, h01800180         '  +8   pixel duplication 2/2
-        if_e    add     pix1, h01800180         '  -4   |
+                and     colN, cmsk              '  +0 = clean sync bits
+                or      colN, idle              '  +4   insert idle state
 
-:pix0_0         mov     0-0, pix0               '  +0 = store scanlines 0/2
+:pix0_0         mov     0-0, pix0               '  +8   store scanlines 0..2
+                add     $-1, dst2               '  -4   |
+:pix3_0         mov     1-1, pix3               '  +0 = store scanline 3
                 add     $-1, dst2               '  +4   |
-:pix1_0         mov     1-1, pix1               '  +8   store scanlines 1/3
+:colN_0         mov     2-2, colN               '  +8   store palette
                 add     $-1, dst2               '  -4   |
 
                 rdword  frqb, addr      {hub}   '  +0 =
@@ -273,39 +253,33 @@ load            muxnc   flag, $                 ' preserve carry flag
                 mov     phsb, eins              '  -4
                 rdlong  pix0, phsb      {hub}   '  +0 =
 
-                rol     frqb, #7                '  +8
+                ror     frqb, #1                '  +8
+                add     frqb, drei              '  -4
+                rdbyte  pix3, frqb      {hub}   '  +0 =
 
-                mov     drei, frqb              '  -4
-:colN_0         mov     2-2, colN               '  +0 = store palette
-                add     $-1, dst2               '  +4   |
-
-                and     frqb, #$FF              '  +8
+                shr     frqb, #24               '  +8
                 mov     phsb, plte              '  -4
                 rdword  colN, phsb      {hub}   '  +0 =
-    
-                test    colN, #1 wz             '  +8
-        if_nz   and     pix0, rxor              '  -4
-                shr     drei, #13               '  +0 =
-                cmp     drei, #%110 wz          '  +4
 
-        if_e    xor     pix0, h80808080         '  +8
+                sub     addr, #2                '  +8
+                test    colN, #1 wz             '  -4
+                shr     pix0, #1 wc             '  +0 =
+                muxc    pix3, #$100             '  +4
 
-                mov     pix1, pix0              '  -4
-                and     pix1, h00FF00FF         '  +0 =
-                shr     pix0, #8                '  +4
-                and     pix0, h00FF00FF         '  +8
+        if_nz   shr     pix0, rcnt              '  +8
+        if_nz   shr     pix3, rcnt              '  -4
 
-        if_e    add     pix0, h01800180         '  -4
-        if_e    add     pix1, h01800180         '  +0 =
+                and     colN, cmsk              '  +0 =
+                or      colN, idle              '  +4
 
-:pix0_1         mov     0-0, pix0               '  +4
-                add     $-1, dst2               '  +8
-:pix1_1         mov     1-1, pix1               '  -4
-                add     $-1, dst2               '  +0 =
-:colN_1         mov     2-2, colN               '  +4
-                add     $-1, dst2               '  +8
+:pix0_1         mov     0-0, pix0               '  +8
+                add     $-1, dst2               '  -4
+:pix3_1         mov     1-1, pix3               '  +0 =
+                add     $-1, dst2               '  +4
+:colN_1         mov     2-2, colN               '  +8
+                add     $-1, dst2               '  -4
 
-        if_nc   djnz    addr, #:loop            '  -4   for all characters
+                djnz    ecnt, #:loop            '  +0 = for all characters
 
                 mov     vier, crs0
                 call    #cursor
@@ -362,9 +336,10 @@ prep_ret        ret
 xmsk            long    $0000FF07               ' covers mode/x
 xlim            long    80 << 8                 ' park position
     
+rcnt            long    $0000001F               ' bit shift for blink mode
 fcnt            long    0                       ' blink frame count
-adv4            long    256*(4+0)*1             ' 4 scanlines in font
-adv8            long    256*(4+0)*2             ' 8 scanlines in font
+adv4            long    256*(4+1)*1             ' 4 scanlines in font
+adv8            long    256*(4+1)*2             ' 8 scanlines in font
 
 flag            long    0                       ' loader flag storage
 idle            long    hv_idle
@@ -380,24 +355,13 @@ font_           long    $00000004 -12           ' |
 locn_           long    $00000008 -12           ' |
 fcnt_           long    $0000000C -12           ' mailbox addresses (local copy)        (##)
 
-vcfg_norm       long    %0_01_0_00_000 << 23
-vcfg_sync       long    %0_01_0_00_000 << 23 | %00000011
-
 dst1            long    1 << 9                  ' dst     +/-= 1
 dst2            long    2 << 9                  ' dst     +/-= 2
 d1s1            long    1 << 9  | 1             ' dst/src +/-= 1
-i2s3            long    2 << 23 | 3
 
                 long    0[$&1]
 cmsk    {2n}    long    %%3330_3330             ' xor mask for block cursor
-pmsk    {2n+1}  long    %%0000_0000_0000_3333   ' xor mask for underscore cursor (updated for secondary)
-
-rmsk            long    $FFFFFFFF               ' master for blink mode
-rxor            long    0                       ' pixel mask
-
-h80808080       long    $80808080               ' |
-h01800180       long    $01800180               ' |
-h00FF00FF       long    $00FF00FF               ' misc patterns
+pmsk    {2n+1}  long    %%0_03333_00000_00000   ' xor mask for underscore cursor (updated for secondary)
 
 ' Stuff below is re-purposed for temporary storage.
 
@@ -428,12 +392,14 @@ setup           add     trap, par wc            ' carry set -> secondary
                 shr     plte, #16               ' |
 
                 rdlong  locn, locn_ wz          ' get cursor location                   (%%)
+                and     font, $+1               ' |
+                long    $0000FFFC               ' cleanup
         if_nz   wrlong  zero, locn_             ' acknowledge cursor location
 
 ' Perform pending setup.
 
                 add     scrn, $+1               ' scrn now points to last word
-                long    160*25 -1
+                long    160*25 -2
 
 ' Upset video h/w and relatives.
 
@@ -453,11 +419,9 @@ setup           add     trap, par wc            ' carry set -> secondary
                 mov     vscl, #1                ' reload as fast as possible
                 mov     zwei, scrn              ' vgrp:[!Z]:vpin:[!Z]:scrn = 2:1:8:5:16 (%%)
                 shr     zwei, #5+16             ' |
-                andn    zwei, #%%000_3          ' |
-                or      vcfg_norm, zwei         ' | group + %%RGB_0
-                shr     zwei, #9                ' |
-                movd    vcfg_sync, zwei         ' | group + %%000_3
-                mov     vcfg, vcfg_sync         ' VGA, 2 colour mode
+                or      zwei, #%%000_3          ' |
+                mov     vcfg, zwei              ' set vgrp and vpin
+                movi    vcfg, #%0_01_0_00_000   ' VGA, 2 colour mode
 
                 waitcnt temp, #0                ' PLL settled, frame counter flushed
                                                   
@@ -467,10 +431,7 @@ setup           add     trap, par wc            ' carry set -> secondary
                 waitpne $, #0                   ' get some distance
                 waitvid zero, #0                ' latch user value
 
-                mov     temp, vcfg_norm         ' |
-                or      temp, vcfg_sync         ' |
-                and     mask, temp              ' transfer vpin
-                
+                and     mask, vcfg              ' transfer vpin
                 mov     temp, vcfg              ' |
                 shr     temp, #9                ' extract vgrp
                 shl     temp, #3                ' 0..3 >> 0..24
@@ -511,12 +472,12 @@ crs0            res     1                       ' cursor 0 location and mode
 crs1            res     1                       ' cursor 1 location and mode
 
 eins            res     1
-zwei            res     1                       '                       < setup +28     (%%)
+zwei            res     1                       '                       < setup +30     (%%)
 drei            res     1
 vier            res     1
 
 pix0            res     1
-pix1            res     1
+pix3            res     1
 colN            res     1
 
                 res     80                      ' |

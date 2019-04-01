@@ -8,8 +8,8 @@ CON
     
 OBJ
     bus: "Bus65xx"
-    text: "waitvid.80x25.c0df.driver.2048"
-    font: "generic8x16-4font"
+    text: "waitvid.80x25.nine.driver.2048"
+    font: "generic9x16-4font"
     SID: "SIDcog"
 
 CON
