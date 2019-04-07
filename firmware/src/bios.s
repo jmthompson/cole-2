@@ -16,6 +16,7 @@
         .import monitor_nmi
         .import via_init
         .import via_irq
+        .import get_console_mode
 
         .import jros_init
 
@@ -229,11 +230,39 @@ print_hex:
 ; Print the boot banner to the console
 ;
 startup_banner:
+        ldx     #0
+@loop:  lda     #$01
+        jsl     console_write
+        lda     f:@colors,x
+        jsl     console_write
+        puts    @bar
+        inx
+        cpx     #16
+        bne     @loop
+
+        putc    #$01
+        putc    #$0F        ; reset to white text
+
+        ; top line of box
+        jsr     @indent
+        putc    #$DA
+        puts    @line
+        putc    #$BF
+        putc    #CR
+
+        ; System ID
+        jsr     @indent
         puts    @sysid
+
+        ; HW Revision
+        jsr     @indent
         puts    @hwrev
         lda     hw_revision
         jsr     print_decimal8
-        puteol
+        puts    @hwrev2
+
+        ; ROM Version
+        jsr     @indent
         puts    @romver
         lda     rom_version
         lsr
@@ -249,13 +278,43 @@ startup_banner:
         putc    #'('
         puts    rom_date
         putc    #')'
+        puts    @romver2
+
+        ; bottom line of box
+        jsr     @indent
+        putc    #$C0
+        puts    @line
+        putc    #$D9
+        putc    #CR
+
         puteol
         puteol
+
         rtl
 
-@sysid: .byte   "COLE-2 Single Board Computer", CR, 0
-@hwrev: .byte   "Hardware Revision ", 0
-@romver:.byte   "ROM Version ", 0
+@indent:
+        ldx     #(80-32)/2
+@indent2:
+        putc    #' '
+        dex
+        bne     @indent2
+        rts
+
+@colors: .byte  $01, $02, $03, $04, $05, $06, $07, $08, $09, $0A, $0B, $0C, $0D, $0E, $0F, $01
+
+@line:  .repeat 30
+        .byte   $C4
+        .endrepeat
+        .byte   0
+
+@sysid:  .byte   $B3, " COLE-2 Single Board Computer ", $B3, CR, 0
+@hwrev:  .byte   $B3, " Hardware Revision ", 0
+@hwrev2: .byte  "          ", $B3, CR, 0
+
+@romver:  .byte   $B3, " ROM Version ", 0
+@romver2: .byte   " ", $B3, CR, 0
+
+@bar:   .byte   $F0, $F0, $F0, $F0, $F0, 00
 
 syscall_table:
         .faraddr    console_read-1
@@ -271,7 +330,11 @@ syscall:
         phx
         phy
         phd
+        ldaw    #DIRECTPAGE
+        tcd
+        shortmx
         cli
+        txa
         and     #255
         beq     @error
         cmp     #syscall_max
@@ -279,6 +342,7 @@ syscall:
         asl
         tax
         ; do it
+
         pha
         pld
         ply
@@ -307,10 +371,17 @@ sysreset:
 
         jsr     via_init
         jsr     uart_init
-        jsl     vga_console_init
-        ;jsl     serial_console_init
 
-        cli
+        jsr     get_console_mode
+        bne     @serial
+
+        jsl     vga_console_init
+        bra     @cont
+
+@serial:
+        jsl     serial_console_init
+
+@cont:  cli
 
         jsl     console_reset
         jsl     console_cls
