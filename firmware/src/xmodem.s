@@ -81,14 +81,10 @@ lastblk: .res   1   ; flag for last block
 blkno:  .res    1   ; block number 
 errcnt: .res    1   ; error counter 10 is the limit
 
-crc:    .res    1   ; CRC lo byte  (two byte variable)
-crch:   .res    1   ; CRC hi byte  
+crc:    .res    2   ; CRC
 
-xmptr:  .res    1   ; data pointer (two byte variable)
-xmptrh: .res    1   ;   "    "
-
-xmeofp: .res    1   ; end of file address pointer (2 bytes)
-xmeofph:.res    1   ;  "    "    "    "
+xmptr:  .res    3   ; data pointer (two byte variable)
+xmeofp: .res    3   ; end of file address pointer (2 bytes)
 
 retry:  .res    1   ; retry counter 
 retry2: .res    1   ; 2nd counter 
@@ -98,8 +94,10 @@ retry2: .res    1   ; 2nd counter
 ; non-zero page variables and buffers
 ;
 ;
-Rbuff   :=  $2000   ; temp 132 byte receive buffer 
-                    ;(place anywhere, page aligned)
+        .segment "BUFFERS"
+        .align 256
+
+Rbuff:  .res    132
 
         .segment "HIGHROM"
 ;
@@ -111,7 +109,7 @@ Rbuff   :=  $2000   ; temp 132 byte receive buffer
 ; v1.0  released on Aug 8, 2002.
 ;
 ; Enter this routine with the beginning address stored in the zero page address
-; pointed to by xmptr & xmptrh and the ending address stored in the zero page address
+; pointed to by xmptr and the ending address stored in the zero page address
 ; pointed to by xmeofp & xmeofph.
 ;
 ;
@@ -126,7 +124,7 @@ XModemSend:
         lda     #$ff        ; 3 seconds
         sta     retry2
         jsr     GetByte
-        bcs     @wait4crc   ; wait for something to come in...
+        bcc     @wait4crc   ; wait for something to come in...
         cmp     #'C'        ; is it the "C" to start a CRC xfer?
         beq     @ldbuffer
         cmp     #ESC        ; is it a cancel? <Esc> Key
@@ -145,15 +143,15 @@ XModemSend:
         eor     #$FF
         sta     Rbuff+1     ; save 1's comp of blkno next
 @ldbuff1:
-        lda     (xmptr),Y   ; save 128 bytes of data
+        lda     [xmptr],Y   ; save 128 bytes of data
         sta     Rbuff,X
 @ldbuff2:
         sec
         lda     xmeofp
         sbc     xmptr       ; Are we at the last address?
         bne     @ldbuff4    ; no, inc pointer and continue
-        lda     xmeofph
-        sbc     xmptrh
+        lda     xmeofp+1
+        sbc     xmptr+1
         bne     @ldbuff4
         inc     lastblk     ; Yes, Set last byte flag
 @ldbuff3:
@@ -166,20 +164,20 @@ XModemSend:
 @ldbuff4:
         inc     xmptr       ; Inc address pointer
         bne     @ldbuff5
-        inc     xmptrh
+        inc     xmptr+1
 @ldbuff5:
         inx
         cpx     #$82        ; last byte in block?
         bne     @ldbuff1    ; no, get the next
 @calc_crc:
         jsr     CalcCRC
-        lda     crch        ; save Hi byte of CRC to buffer
+        lda     crc+1       ; save Hi byte of CRC to buffer
         sta     Rbuff,Y
         iny
         lda     crc         ; save lo byte of CRC to buffer
         sta     Rbuff,Y
 @resend:
-        ldx     #$00;
+        ldx     #$00
         putc    #SOH        ; send SOH
 @sendblk:
         lda     Rbuff,X     ; Send 132 bytes in buffer to the console
@@ -190,7 +188,7 @@ XModemSend:
         lda     #$FF        ; yes, set 3 second delay 
         sta     retry2      ; and
         jsr     GetByte     ; Wait for Ack/Nack
-        bcs     @seterror   ; No chr received after 3 seconds, resend
+        bcc     @seterror   ; No chr received after 3 seconds, resend
         cmp     #ACK        ; Chr received... is it:
         beq     @ldbuffer   ; ACK, send next block
         cmp     #NAK
@@ -219,16 +217,14 @@ XModemRcv:
         putc    #'C'        ; "C" start with CRC mode
         lda     #$FF    
         sta     retry2      ; set loop counter for ~3 sec delay
-        stz     crc
-        stz     crch        ; init CRC value    
         jsr     GetByte     ; wait for input
-        bcc     @gotbyte    ; byte received, process it
+        bcs     @gotbyte    ; byte received, process it
         bra     @startcrc   ; resend "C"
 @startblk:
         lda     #$FF
         sta     retry2      ; set loop counter for ~3 sec delay
         jsr     GetByte     ; get first byte of block
-        bcs     @startblk   ; timed out, keep waiting...
+        bcc     @startblk   ; timed out, keep waiting...
 @gotbyte:
         cmp     #ESC        ; quitting?
         bne     @gotbyte1   ; no
@@ -246,7 +242,7 @@ XModemRcv:
         sta     retry2
 @getblk1:
         jsr     GetByte     ; get next character
-        bcs     @bad
+        bcc     @bad
 @getblk2:
         sta     Rbuff,X     ; good char, save it in the rcv buffer
         inx                 ; inc buffer pointer    
@@ -270,7 +266,7 @@ XModemRcv:
 @goodblk2:
         jsr     CalcCRC     ; calc CRC
         lda     Rbuff,Y     ; get hi CRC from buffer
-        cmp     crch        ; compare to calculated hi CRC
+        cmp     crc+1       ; compare to calculated hi CRC
         bne     @bad        ; bad crc, send NAK
         iny
         lda     Rbuff,Y     ; get lo CRC from buffer
@@ -281,7 +277,7 @@ XModemRcv:
         jmp     @startblk   ; start over, get the block again            
 @good:  ldy     #$00        ; set offset to zero
 @copy:  lda     Rbuff+2,Y   ; get data byte from buffer
-        sta     (xmptr),Y   ; save to target
+        sta     [xmptr],Y   ; save to target
         iny
         bpl     @copy       ; stop when Y=$80
         tya
@@ -313,9 +309,8 @@ GetByte:
         bne     @loop
         dec     retry2      ; dec hi byte of counter
         bne     @loop       ; look for character again
-        sec                 ; if loop times out, SEC, else CLC and return
-@ok:    clc
-        rts                 ; with character in "A"
+        clc                 ; if loop times out, CLC, else SEC and return
+@ok:    rts                 ; with character in "A"
 
 ;
 Flush:
@@ -344,77 +339,60 @@ Print_Good:
 @msg:   .byte   EOT,CR,EOT,CR,EOT,CR,CR
         .byte   "Transfer Successful!", $0d, 00
 
+;;
+; Calculate block CRC
 ;
-;
-;=========================================================================
-;
-;
-;  CRC subroutines 
-;
- ;
 CalcCRC:
         stz     crc
-        stz     crch
+        stz     crc+1
         ldy     #$02
 @loop:  lda     Rbuff,Y
         eor     crc+1   ; Quick CRC computation with lookup tables
         tax             ; updates the two bytes at crc & crc+1
         lda     crc     ; with the byte send in the "A" register
-        eor     crchi,X
+        eor     f:crchi,X
         sta     crc+1
-        lda     crclo,X
+        lda     f:crclo,X
         sta     crc
         iny
         cpy    #$82     ; done yet?
         bne    @loop    ; no, get next
         rts             ; y=82 on exit
 
-        .segment "RODATA"
-
-; The following tables are used to calculate the CRC for the 128 bytes
-; in the xmodem data blocks.  You can use these tables if you plan to 
-; store this program in ROM.  If you choose to build them at run-time, 
-; then just delete them and define the two labels: crclo & crchi.
-;
-; low byte CRC lookup table (should be page aligned)
-;
+; low byte CRC lookup table
 crclo:
- .byte $00,$21,$42,$63,$84,$A5,$C6,$E7,$08,$29,$4A,$6B,$8C,$AD,$CE,$EF
- .byte $31,$10,$73,$52,$B5,$94,$F7,$D6,$39,$18,$7B,$5A,$BD,$9C,$FF,$DE
- .byte $62,$43,$20,$01,$E6,$C7,$A4,$85,$6A,$4B,$28,$09,$EE,$CF,$AC,$8D
- .byte $53,$72,$11,$30,$D7,$F6,$95,$B4,$5B,$7A,$19,$38,$DF,$FE,$9D,$BC
- .byte $C4,$E5,$86,$A7,$40,$61,$02,$23,$CC,$ED,$8E,$AF,$48,$69,$0A,$2B
- .byte $F5,$D4,$B7,$96,$71,$50,$33,$12,$FD,$DC,$BF,$9E,$79,$58,$3B,$1A
- .byte $A6,$87,$E4,$C5,$22,$03,$60,$41,$AE,$8F,$EC,$CD,$2A,$0B,$68,$49
- .byte $97,$B6,$D5,$F4,$13,$32,$51,$70,$9F,$BE,$DD,$FC,$1B,$3A,$59,$78
- .byte $88,$A9,$CA,$EB,$0C,$2D,$4E,$6F,$80,$A1,$C2,$E3,$04,$25,$46,$67
- .byte $B9,$98,$FB,$DA,$3D,$1C,$7F,$5E,$B1,$90,$F3,$D2,$35,$14,$77,$56
- .byte $EA,$CB,$A8,$89,$6E,$4F,$2C,$0D,$E2,$C3,$A0,$81,$66,$47,$24,$05
- .byte $DB,$FA,$99,$B8,$5F,$7E,$1D,$3C,$D3,$F2,$91,$B0,$57,$76,$15,$34
- .byte $4C,$6D,$0E,$2F,$C8,$E9,$8A,$AB,$44,$65,$06,$27,$C0,$E1,$82,$A3
- .byte $7D,$5C,$3F,$1E,$F9,$D8,$BB,$9A,$75,$54,$37,$16,$F1,$D0,$B3,$92
- .byte $2E,$0F,$6C,$4D,$AA,$8B,$E8,$C9,$26,$07,$64,$45,$A2,$83,$E0,$C1
- .byte $1F,$3E,$5D,$7C,$9B,$BA,$D9,$F8,$17,$36,$55,$74,$93,$B2,$D1,$F0 
+        .byte  $00,$21,$42,$63,$84,$A5,$C6,$E7,$08,$29,$4A,$6B,$8C,$AD,$CE,$EF
+        .byte  $31,$10,$73,$52,$B5,$94,$F7,$D6,$39,$18,$7B,$5A,$BD,$9C,$FF,$DE
+        .byte  $62,$43,$20,$01,$E6,$C7,$A4,$85,$6A,$4B,$28,$09,$EE,$CF,$AC,$8D
+        .byte  $53,$72,$11,$30,$D7,$F6,$95,$B4,$5B,$7A,$19,$38,$DF,$FE,$9D,$BC
+        .byte  $C4,$E5,$86,$A7,$40,$61,$02,$23,$CC,$ED,$8E,$AF,$48,$69,$0A,$2B
+        .byte  $F5,$D4,$B7,$96,$71,$50,$33,$12,$FD,$DC,$BF,$9E,$79,$58,$3B,$1A
+        .byte  $A6,$87,$E4,$C5,$22,$03,$60,$41,$AE,$8F,$EC,$CD,$2A,$0B,$68,$49
+        .byte  $97,$B6,$D5,$F4,$13,$32,$51,$70,$9F,$BE,$DD,$FC,$1B,$3A,$59,$78
+        .byte  $88,$A9,$CA,$EB,$0C,$2D,$4E,$6F,$80,$A1,$C2,$E3,$04,$25,$46,$67
+        .byte  $B9,$98,$FB,$DA,$3D,$1C,$7F,$5E,$B1,$90,$F3,$D2,$35,$14,$77,$56
+        .byte  $EA,$CB,$A8,$89,$6E,$4F,$2C,$0D,$E2,$C3,$A0,$81,$66,$47,$24,$05
+        .byte  $DB,$FA,$99,$B8,$5F,$7E,$1D,$3C,$D3,$F2,$91,$B0,$57,$76,$15,$34
+        .byte  $4C,$6D,$0E,$2F,$C8,$E9,$8A,$AB,$44,$65,$06,$27,$C0,$E1,$82,$A3
+        .byte  $7D,$5C,$3F,$1E,$F9,$D8,$BB,$9A,$75,$54,$37,$16,$F1,$D0,$B3,$92
+        .byte  $2E,$0F,$6C,$4D,$AA,$8B,$E8,$C9,$26,$07,$64,$45,$A2,$83,$E0,$C1
+        .byte  $1F,$3E,$5D,$7C,$9B,$BA,$D9,$F8,$17,$36,$55,$74,$93,$B2,$D1,$F0 
 
-; hi byte CRC lookup table (should be page aligned)
+; hi byte CRC lookup table
 crchi:
- .byte $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$A1,$B1,$C1,$D1,$E1,$F1
- .byte $12,$02,$32,$22,$52,$42,$72,$62,$93,$83,$B3,$A3,$D3,$C3,$F3,$E3
- .byte $24,$34,$04,$14,$64,$74,$44,$54,$A5,$B5,$85,$95,$E5,$F5,$C5,$D5
- .byte $36,$26,$16,$06,$76,$66,$56,$46,$B7,$A7,$97,$87,$F7,$E7,$D7,$C7
- .byte $48,$58,$68,$78,$08,$18,$28,$38,$C9,$D9,$E9,$F9,$89,$99,$A9,$B9
- .byte $5A,$4A,$7A,$6A,$1A,$0A,$3A,$2A,$DB,$CB,$FB,$EB,$9B,$8B,$BB,$AB
- .byte $6C,$7C,$4C,$5C,$2C,$3C,$0C,$1C,$ED,$FD,$CD,$DD,$AD,$BD,$8D,$9D
- .byte $7E,$6E,$5E,$4E,$3E,$2E,$1E,$0E,$FF,$EF,$DF,$CF,$BF,$AF,$9F,$8F
- .byte $91,$81,$B1,$A1,$D1,$C1,$F1,$E1,$10,$00,$30,$20,$50,$40,$70,$60
- .byte $83,$93,$A3,$B3,$C3,$D3,$E3,$F3,$02,$12,$22,$32,$42,$52,$62,$72
- .byte $B5,$A5,$95,$85,$F5,$E5,$D5,$C5,$34,$24,$14,$04,$74,$64,$54,$44
- .byte $A7,$B7,$87,$97,$E7,$F7,$C7,$D7,$26,$36,$06,$16,$66,$76,$46,$56
- .byte $D9,$C9,$F9,$E9,$99,$89,$B9,$A9,$58,$48,$78,$68,$18,$08,$38,$28
- .byte $CB,$DB,$EB,$FB,$8B,$9B,$AB,$BB,$4A,$5A,$6A,$7A,$0A,$1A,$2A,$3A
- .byte $FD,$ED,$DD,$CD,$BD,$AD,$9D,$8D,$7C,$6C,$5C,$4C,$3C,$2C,$1C,$0C
- .byte $EF,$FF,$CF,$DF,$AF,$BF,$8F,$9F,$6E,$7E,$4E,$5E,$2E,$3E,$0E,$1E 
-;
-;
-; End of File
-;
+        .byte  $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$A1,$B1,$C1,$D1,$E1,$F1
+        .byte  $12,$02,$32,$22,$52,$42,$72,$62,$93,$83,$B3,$A3,$D3,$C3,$F3,$E3
+        .byte  $24,$34,$04,$14,$64,$74,$44,$54,$A5,$B5,$85,$95,$E5,$F5,$C5,$D5
+        .byte  $36,$26,$16,$06,$76,$66,$56,$46,$B7,$A7,$97,$87,$F7,$E7,$D7,$C7
+        .byte  $48,$58,$68,$78,$08,$18,$28,$38,$C9,$D9,$E9,$F9,$89,$99,$A9,$B9
+        .byte  $5A,$4A,$7A,$6A,$1A,$0A,$3A,$2A,$DB,$CB,$FB,$EB,$9B,$8B,$BB,$AB
+        .byte  $6C,$7C,$4C,$5C,$2C,$3C,$0C,$1C,$ED,$FD,$CD,$DD,$AD,$BD,$8D,$9D
+        .byte  $7E,$6E,$5E,$4E,$3E,$2E,$1E,$0E,$FF,$EF,$DF,$CF,$BF,$AF,$9F,$8F
+        .byte  $91,$81,$B1,$A1,$D1,$C1,$F1,$E1,$10,$00,$30,$20,$50,$40,$70,$60
+        .byte  $83,$93,$A3,$B3,$C3,$D3,$E3,$F3,$02,$12,$22,$32,$42,$52,$62,$72
+        .byte  $B5,$A5,$95,$85,$F5,$E5,$D5,$C5,$34,$24,$14,$04,$74,$64,$54,$44
+        .byte  $A7,$B7,$87,$97,$E7,$F7,$C7,$D7,$26,$36,$06,$16,$66,$76,$46,$56
+        .byte  $D9,$C9,$F9,$E9,$99,$89,$B9,$A9,$58,$48,$78,$68,$18,$08,$38,$28
+        .byte  $CB,$DB,$EB,$FB,$8B,$9B,$AB,$BB,$4A,$5A,$6A,$7A,$0A,$1A,$2A,$3A
+        .byte  $FD,$ED,$DD,$CD,$BD,$AD,$9D,$8D,$7C,$6C,$5C,$4C,$3C,$2C,$1C,$0C
+        .byte  $EF,$FF,$CF,$DF,$AF,$BF,$8F,$9F,$6E,$7E,$4E,$5E,$2E,$3E,$0E,$1E 
