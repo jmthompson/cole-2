@@ -27,7 +27,8 @@ vga_reg     := $f031
 
         .segment "ZEROPAGE"
 
-text_color: .res    1
+command:    .res    1
+text_attr:  .res    1
 cursor_x:   .res    1
 cursor_y:   .res    1
 vram_addr:  .res    2
@@ -39,9 +40,9 @@ line_buffer: .res   ROW_SIZE
         .segment "HIGHROM"
 
 vga_console_init:
-        lda     vga_status
-        cmp     #$42
-        bne     vga_console_init
+;        lda     vga_status
+;        cmp     #$42
+;        bne     vga_console_init
 
         lda     #$5c
         sta     console_bell
@@ -102,7 +103,7 @@ vga_cls:
 @row:   ldx     #COLS
 @col:   lda     #' '
         sta     vga_vram
-        lda     text_color
+        lda     text_attr
         sta     vga_vram
         dex
         bne     @col
@@ -112,7 +113,8 @@ vga_cls:
 
 vga_reset:
         lda     #DEFAULT_COLOR
-        sta     text_color
+        sta     text_attr
+        stz     command
         stz     cursor_x
         stz     cursor_y
         jsr     cursor_on       ; turn on the cursor
@@ -132,6 +134,8 @@ vga_write:
         tcd
         shortm
         lda     5,s
+        ldx     command
+        bne     @cmd
         cmp     #' '
         blt     @ctrl
         ldx     cursor_x
@@ -139,11 +143,13 @@ vga_write:
         jsr     calc_vram_ptr
         lda     5,s
         sta     vga_vram
-        lda     text_color
+        lda     text_attr
         sta     vga_vram
         jsr     cursor_forward
         bra     @exit
-@ctrl:  cmp     #CR
+@ctrl:  cmp     #1
+        beq     @attr
+        cmp     #CR
         beq     @cr
         cmp     #BS
         beq     @bs
@@ -154,11 +160,16 @@ vga_write:
         pla
         shortm
         rtl
+@attr:  sta     command
+        bra     @exit
 @cr:    lda     #COLS-1
         sta     cursor_x            ; fake being at end of line
         jsr     cursor_forward      ; advance to start of next line
         bra     @exit
 @bs:    jsr     cursor_backward
+        bra     @exit
+@cmd:   sta     text_attr
+        stz     command
         bra     @exit
 
 cursor_on:
@@ -174,9 +185,11 @@ cursor_off:
 cursor_backward:
         dec     cursor_x
         bpl     move_cursor
-        stz     cursor_x
+        lda     #COLS-1
+        sta     cursor_x
         dec     cursor_y
         bpl     move_cursor
+        stz     cursor_x
         stz     cursor_y
         bra     move_cursor
 
@@ -228,7 +241,7 @@ write_line:
 
 blank_line:
         ldx     #0
-        lda     text_color
+        lda     text_attr
         xba
         lda     #' '
 @loop:  sta     vga_vram
@@ -243,13 +256,16 @@ blank_line:
 scroll_up:
         ldy     #1
 @line:  ldx     #0
+        phy
+        phy
         jsr     calc_vram_ptr
         jsr     read_line
+        ply
         dey
         ldx     #0
         jsr     calc_vram_ptr
         jsr     write_line
-        iny
+        ply
         iny
         cpy     #ROWS
         bne     @line
@@ -261,29 +277,17 @@ scroll_up:
 ;;
 ; Calculate VRAM address of col/row in X/Y
 ;
-; Trashes C,X
+; Trashes C,X,Y
 ;
 calc_vram_ptr:
         longm
-        tya                 ; automatically sets upper byte to $00
-        asl
-        asl
-        asl
-        asl                 ; x16
-        pha
-        asl
-        asl                 ; x64
-        sta     vram_addr
-        pla
-        clc
-        adc     vram_addr   ; x16 + x64 = x80
-        sta     vram_addr   ; save row base
         txa
-        clc
-        adc     vram_addr
-        asl                 ; x2 since each char is 2 bytes
+        asl
         sta     vram_addr
-        ldaw    #TEXT_SIZE-1
+        tya
+        asl
+        tay
+        lda     line_base,y
         sec
         sbc     vram_addr
         sta     vram_addr
@@ -314,3 +318,10 @@ set_register:
         sta     vga_reg
         cli
         rts
+
+        .segment "LOWROM"
+
+line_base:
+        .repeat ROWS, i
+        .word   TEXT_SIZE-1-(ROW_SIZE*i)
+        .endrepeat
