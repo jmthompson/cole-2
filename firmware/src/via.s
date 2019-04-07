@@ -97,7 +97,7 @@ set_led:
         sta     via1_base+via_portb
         rts
 @clr:   lda     via1_base+via_portb
-        and     #~PB_ACT_LED
+        and     #~PB_ACT_LED&$FF
         sta     via1_base+via_portb
         rts
 
