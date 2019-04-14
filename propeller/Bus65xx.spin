@@ -56,11 +56,14 @@ DAT
 Bus65xx     or      outa, Pin_IRQ               '/IRQ starts high
             or      dira, Pin_IRQ
                    
-            andn    outa, PIN_STP               '/STP starts high (low, because inverter)
+            andn    outa, Pin_STP               '/STP starts high (low, because inverter)
             or      dira, Pin_STP
  
-            or      outa, PIN_BE                '/BE starts high
-            or      dira, PIN_BE
+            or      outa, Pin_RESET             '/RESET starts low (high, because inverter)
+            or      dira, Pin_RESET
+            
+            or      outa, Pin_BE                '/BE starts high
+            or      dira, Pin_BE
 
             mov     temp, par                   'Get address of parameters
             rdlong  vram_start, temp            'Copy VRAM start address
@@ -77,11 +80,13 @@ Bus65xx     or      outa, Pin_IRQ               '/IRQ starts high
             mov     status_reg, #$42            'testing
             mov     ctrl_reg, #0                'start vram in dec mode
 
+            andn    outa, Pin_RESET             'Raise (lower) /RESET and start the MPU
+
 '' Main event loop; wait for a new bus request, service it, and repeat
 
 mainloop    waitpeq Pin_PHI2, Pin_CS_PHI2       'Wait for /CS to go low with Phi2 high 
             or      outa, Pin_STP               'Pull /STP low
-            andn    outa, PIN_BE                'Pull /BE low
+            andn    outa, Pin_BE                'Pull /BE low
             mov     _in, ina
             and     _in, Pin_RS WZ,NR           'Check RS bit (0 = vram, 1 = registers)
             and     _in, Pin_RWB                'Mask RWB bit for later
@@ -98,7 +103,7 @@ finish_request
             waitpeq Pin_PHI2, Pin_PHI2          'one cycle so we restart on Phi2 high
             andn    outa, Pin_STP               'Unpause the CPU
             waitpeq Pin_CS, Pin_CS              'Wait for /CS to go high again
-            or      outa, PIN_BE                'Pull /BE high                                        '
+            or      outa, Pin_BE                'Pull /BE high                                        '
             andn    dira, Pins_Data             'Set data bus pins to high-Z (input state)
             jmp     #mainloop                   'Rinse and repeat
 
@@ -221,7 +226,8 @@ Pin_RWB     long    |< 10                       'RWB
 Pin_PHI2    long    |< 11                       'PHI2
 Pin_STP     long    |< 12                       '/STP
 Pin_IRQ     long    |< 13                       '/IRQ
-PIN_BE      long    |< 27                       '/BE
+Pin_RESET   long    |< 26                       '/RESET
+Pin_BE      long    |< 27                       '/BE
 
 Pin_CS_PHI2 long    |<9 | |<11                  '/CS | PHI2
 
