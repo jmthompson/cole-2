@@ -9,8 +9,8 @@
 #define PT_GET_STATUS       0x01
 #define PT_STATUS           0x81
 
-#define PT_GET_KBD_BYTES    0x10
-#define PT_KBD_BYTES        0x90
+#define PT_GET_KBD_DATA     0x10
+#define PT_KBD_DATA         0x90
 
 #define PT_SET_KBD_LEDS     0x11
 #define PT_PS2_RESPONSE     0x91

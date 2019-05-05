@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <avr/interrupt.h>
 
+#include "keyboard.h"
 #include "packet_types.h"
 #include "mpu.h"
 #include "pins.h"
@@ -9,6 +10,38 @@
 
 uint8_t payload[MAX_PAYLOAD];
 uint16_t payload_len;
+
+/**
+ * Status register;
+ *
+ * bit 7 : interrupting
+ * bit 6 : reserved
+ * bit 5 : reserved
+ * bit 4 : reserved
+ * bit 3 : reserved
+ * bit 2 : SPI ready
+ * bit 1 : mouse data available
+ * bit 0 : keyboard data available
+ */
+uint8_t status;
+
+/**
+ * Set interrupt (pull IRQ line low)
+ */
+static void set_irq(void) {
+    status |= 0x80;
+
+    PORTC &= ~PC_IRQ;
+}
+
+/**
+ * Clar interrupt line (pull IRQ high)
+ */
+static void clear_irq(void) {
+    status &= 0x7F;
+
+    PORTC |= PC_IRQ;
+}
 
 int main(void) {
     initTimers();
@@ -24,18 +57,41 @@ int main(void) {
     DDRC  |= PC_IRQ;
     PORTC |= PC_IRQ;
 
+    status = 0;
+
     sei();
 
+    kbdInit();  // must occur after all other HW setup
+
     while (1) {
+        kbdUpdate();    // Do pending LED updates, etc.
+
+        /**
+         * If the "keyboard data availble" is not set,
+         * and data is now available, then set the flag
+         * and raise an interrupt
+         */
+        if (!(status & 0x01) && kbdDataReady()) {
+            status |= 0x01;
+
+            set_irq();
+        }
+
         uint8_t pt = mpuGetRequest(payload, &payload_len);
         
         switch(pt) {
             case PT_NO_DATA:
                 // do nothing
                 break;
-            case PT_GET_KBD_BYTES:
-                payload_len = ps2GetKbdBytes(payload);
-                mpuSendResponse(PT_KBD_BYTES, payload, payload_len);
+            case PT_GET_STATUS:
+                mpuSendResponse(PT_STATUS, &status, 1);
+                clear_irq();
+
+                break;
+            case PT_GET_KBD_DATA:
+                payload_len = kbdGetData(payload);
+                mpuSendResponse(PT_KBD_DATA, payload, payload_len);
+                status &= ~0x01;    // clear kbd data available flag
 
                 break;
             case PT_SET_KBD_LEDS:
@@ -43,18 +99,7 @@ int main(void) {
                     mpuSendResponse(PT_PROTOCOL_ERROR, NULL, 0);
                 }
                 else {
-                    uint8_t leds = payload[0] & 0x07;
-
-                    ps2SendKbdByte(PS2_SET_LEDS);
-
-                    // wait for a response
-                    while (!(payload_len = ps2GetKbdBytes(payload))) {};
-
-                    if (payload[0] == PS2_ACK) {
-                        ps2SendKbdByte(leds);
-
-                        while (!(payload_len = ps2GetKbdBytes(payload))) {};
-                    }
+                    kbdSetLeds(payload[0]);
 
                     mpuSendResponse(PT_PS2_RESPONSE, payload, payload_len);
                 }

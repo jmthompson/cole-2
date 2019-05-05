@@ -20,7 +20,7 @@ LDFLAGS = -Wl,-Map,$(TARGET).map -mmcu=$(MCU) -lm $(LIBS)
 
 #################################################################################
 
-SRC	=	main.c mpu.c ps2.c timers.c
+SRC	=	main.c mpu.c ps2.c timers.c keyboard.c
  
 OBJ	=	$(SRC:.c=.o)
 
