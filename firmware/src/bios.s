@@ -11,6 +11,7 @@
         .import uart_irq
         .import serial_console_init
         .import vga_console_init
+        .import kbd_init
         .import monitor_start
         .import monitor_brk
         .import monitor_nmi
@@ -371,6 +372,7 @@ sysreset:
 
         jsr     via_init
         jsr     uart_init
+        jsr     kbd_init
 
         jsr     get_console_mode
         bne     @serial

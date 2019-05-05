@@ -8,6 +8,7 @@
 
         .export vga_console_init
 
+        .import kbd_read
         .import getc_seriala
         .import __SYSDP_START__
 
@@ -40,10 +41,6 @@ line_buffer: .res   ROW_SIZE
         .segment "HIGHROM"
 
 vga_console_init:
-;        lda     vga_status
-;        cmp     #$42
-;        bne     vga_console_init
-
         lda     #$5c
         sta     console_bell
         sta     console_cls
@@ -122,7 +119,10 @@ vga_reset:
         rtl
 
 vga_read:
+        jsl     kbd_read
+        bcs     @done
         jml     getc_seriala
+@done:  rtl
 
 vga_write:
         longm
