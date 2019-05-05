@@ -33,7 +33,7 @@ start_loc:  .res    3
 end_loc:    .res    3
 row_end:    .res    1
 
-        .segment "DATA"
+        .segment "SYSDATA": far
 
 a_reg:      .res    2
 x_reg:      .res    2
@@ -371,7 +371,7 @@ dump_memory:
         putc    #' '
         pla
         sta     start_loc
-@loop2: lda     (start_loc)
+@loop2: lda     [start_loc]
         and     #$7F
         cmp     #' '
         bcs     @printable
@@ -458,10 +458,14 @@ xmodem_send:
         sta     xmptr
         lda     start_loc+1
         sta     xmptr+1
+        lda     start_loc+2
+        sta     xmptr+2
         lda     end_loc
         sta     xmeofp
         lda     end_loc+1
         sta     xmeofp+1
+        lda     end_loc+2
+        sta     xmeofp+2
         jmp     XModemSend
 
 xmodem_receive:
@@ -469,4 +473,6 @@ xmodem_receive:
         sta     xmptr
         lda     start_loc+1
         sta     xmptr+1
+        lda     start_loc+2
+        sta     xmptr+2
         jmp     XModemRcv
