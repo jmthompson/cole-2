@@ -40,7 +40,7 @@ disassemble:
         lda     #2
         sta     mwidth
         sta     xwidth              ; Default to m=1, x=1
-        ldx     #24
+        ldx     #20
 @loop:  phx
         jsr     print_instruction
         plx
