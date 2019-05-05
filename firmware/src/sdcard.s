@@ -17,7 +17,7 @@
 ;
 ;        .export sdcard_driver
 ;
-;        .segment "DATA"
+;        .segment "SYSDATA": far
 ;
 ;cmd51:
 ;csd:    .res    16

@@ -23,7 +23,7 @@
 ;drive:  .res    2
 ;unit:   .res    2
 ;
-;        .segment "DATA"
+;        .segment "SYSDATA": far
 ;
 ;devicenr:
 ;        .res  1
