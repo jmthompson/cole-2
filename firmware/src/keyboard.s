@@ -13,11 +13,6 @@
 
 BUFFER_SIZE = 16
 
-;;
-; Keyboard events are <keycode><modifiers>
-;
-; <modifiers> is a bitmap
-
 MOD_ALT     = $01
 MOD_CTRL    = $02
 MOD_SHIFT   = $04
@@ -35,12 +30,15 @@ kbd_buffer:
 
 rd_idx: .res    1
 wr_idx: .res    1
+modifiers:
+        .res    1
 
         .segment "LOWROM"
 
 kbd_init:
         stz     rd_idx
         stz     wr_idx
+        stz     modifiers
         rts
 
 ;;
@@ -63,28 +61,118 @@ kbd_handler:
 ; Return the next key fron the buffer, if one is available. 
 ;
 ; On exit, C=1 and A=keycode if there was data in the buffer.
-; Otherwise, C=0 and A is undefined.
-;
 kbd_read:
         phx
-        jsr     get_event
-        bcc     @empty
-        bit     #MOD_KEYUP
-        bne     @empty      ; Ignore keyup
-        jsr     apply_modifiers
-        xba
+        jsr     parse_keycode
         plx
-        sec
-        rtl
-@empty: plx
-        clc
         rtl
 
+parse_keycode:
+        jsr     get_data
+        bcs     @process
+        rts
+@process:
+        xba                     ; save data for later
+        lda     #MOD_KEYUP
+        bit     modifiers       ; are we processing a key up sequence?
+        bmi     key_up          ; yes so process key up
+        bra     key_down        ; no, so process key down
+
+key_up:
+        trb     modifiers       ; A is still #MOD_KEYUP
+        xba
+        cmp     #KEY_L_ALT
+        beq     @alt
+        cmp     #KEY_R_ALT
+        beq     @alt
+        cmp     #KEY_L_CTRL
+        beq     @ctrl
+        cmp     #KEY_R_CTRL
+        beq     @ctrl
+        cmp     #KEY_L_SHIFT
+        beq     @shift
+        cmp     #KEY_R_SHIFT
+        beq     @shift
+        cmp     #KEY_CAPS
+        beq     @caps
+        cmp     #KEY_NUM
+        beq     @num
+        cmp     #KEY_SCROLL
+        beq     @scroll
+        bra     parse_keycode   ; don't care about other key up codes
+@alt:   lda     #MOD_ALT
+        trb     modifiers
+        bra     parse_keycode
+@ctrl:  lda     #MOD_CTRL
+        trb     modifiers
+        bra     parse_keycode
+@shift: lda     #MOD_SHIFT
+        trb     modifiers
+        bra     parse_keycode
+@caps:  lda     #MOD_CAPS
+        trb     modifiers
+        bra     parse_keycode
+@num:   lda     #MOD_NUM
+        trb     modifiers
+        bra     parse_keycode
+@scroll: lda    #MOD_SCROLL 
+        trb     modifiers
+        bra     parse_keycode
+
+key_down:
+        xba
+        cmp     #KEY_PFX_KEYUP  ; is it a keyup prefix
+        beq     @keyup
+        cmp     #KEY_L_ALT
+        beq     @alt
+        cmp     #KEY_R_ALT
+        beq     @alt
+        cmp     #KEY_L_CTRL
+        beq     @ctrl
+        cmp     #KEY_R_CTRL
+        beq     @ctrl
+        cmp     #KEY_L_SHIFT
+        beq     @shift
+        cmp     #KEY_R_SHIFT
+        beq     @shift
+        cmp     #KEY_CAPS
+        beq     @caps
+        cmp     #KEY_NUM
+        beq     @num
+        cmp     #KEY_SCROLL
+        beq     @scroll
+        jsr     apply_modifiers
+        sec
+        rts
+@keyup: lda     #MOD_KEYUP
+        tsb     modifiers
+        jmp     parse_keycode
+@alt:   lda     #MOD_ALT
+        tsb     modifiers
+        jmp     parse_keycode
+@ctrl:  lda     #MOD_CTRL
+        tsb     modifiers
+        jmp     parse_keycode
+@shift: lda     #MOD_SHIFT
+        tsb     modifiers
+        jmp     parse_keycode
+@caps:  lda     #MOD_CAPS
+        tsb     modifiers
+        jmp     parse_keycode
+@num:   lda     #MOD_NUM
+        tsb     modifiers
+        jmp     parse_keycode
+@scroll: lda    #MOD_SCROLL
+        tsb     modifiers
+        jmp     parse_keycode
+
 ;;
-; Given a keyboard event in A/B, apply modifiers to the keycode
+; Given a key code A, apply modifiers to the keycode
 ; and return the result in A.
 ;
 apply_modifiers:
+        xba
+        lda     modifiers
         bit     #MOD_SHIFT
         beq     @noshift
         jsr     apply_shift
@@ -97,6 +185,7 @@ apply_modifiers:
         beq     @noctrl
         jsr     apply_control
 @noctrl:
+        xba
         rts
 
 apply_shift:
@@ -129,17 +218,14 @@ apply_control:
         rts
 
 ;;
-; Get the next keyboard event from the buffer, if one is available.
-; Returns with C = 0 if no key code is available. Otherwise, C=1,
-; the key code is in B and the modifiers are in A.
+; Get the next byte from the buffer, if one is available.
+; Returns with C = 0 if no data is available. Otherwise, C=1,
+; and the data is in A
 ;
-get_event:
+get_data:
         ldx     rd_idx
         cpx     wr_idx
         beq     @empty
-        lda     kbd_buffer,x
-        xba
-        inx
         lda     kbd_buffer,x
         inx
         stx     rd_idx 

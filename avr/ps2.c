@@ -2,66 +2,60 @@
 #include <avr/interrupt.h>
 
 #include "keyboard.h"
+#include "sr.h"
 #include "pins.h"
 #include "ps2.h"
 #include "timers.h"
 
-volatile kbd_state_t state;
+static volatile ps2_port_t ports[PS2_NUM_PORTS];
 
-volatile uint8_t kbd_data_in;
-volatile uint8_t kbd_data_out;
-volatile uint8_t kbd_result;
-volatile uint8_t kbd_bits;
-volatile uint8_t kbd_parity; 
-volatile uint8_t kbd_resend;
-
-static inline uint8_t getBit(void)
+static inline uint8_t getBit(volatile ps2_port_t *port)
 {
-    return PINC & PC_PS2_DATA;
+    return PIND & port->data_mask;
 }
 
-static inline void setBit(uint8_t val)
+static inline void setBit(volatile ps2_port_t *port, uint8_t val)
 {
     if (val) {
-        PORTC |= PC_PS2_DATA;
+        PORTD |= port->data_mask;
     }
     else {
-        PORTC &= ~PC_PS2_DATA;
+        PORTD &= ~port->data_mask;
     }
 }
 
-static inline void setReceiving(void)
+static inline void setReceiving(volatile ps2_port_t *port)
 {
-    kbd_data_in = kbd_bits = kbd_parity = 0;
+    port->data_in = port->bits = port->parity = 0;
 
-    state = PS2_RECEIVING;
+    port->state = PS2_RECEIVING;
 }
 
-static inline void setSending(void)
+static inline void setSending(volatile ps2_port_t *port)
 {
     // Pull clock line low for at least 100us
-    DDRC  |= PC_PS2_CLOCK;
-    PORTC &= ~PC_PS2_CLOCK;
+    DDRD  |= port->clock_mask;
+    PORTD &= ~port->clock_mask;
     delayMicroseconds(100);
 
     // Pull the data line low
-    DDRC  |= PC_PS2_DATA;
-    PORTC &= ~PC_PS2_DATA;
+    DDRD  |= port->data_mask;
+    PORTD &= ~port->data_mask;
 
     // Release the clock line
-    DDRC &= ~PC_PS2_CLOCK;
+    DDRD &= ~port->clock_mask;
 
-    kbd_bits   = 0;
-    kbd_parity = 0;
-    kbd_resend = 3;
-
-    state = PS2_SENDING;
+    port->bits   = 0;
+    port->parity = 0;
+    port->resend = 3;
+    port->state  = PS2_SENDING;
 }
 
-static inline void setIdle(void)
+static inline void setIdle(volatile ps2_port_t *port)
 {
-    DDRC &= ~PC_PS2_DATA;
-    state = PS2_IDLE;
+    DDRD &= ~port->data_mask;
+
+    port->state = PS2_IDLE;
 }
 
 /**
@@ -69,7 +63,19 @@ static inline void setIdle(void)
  */
 void ps2Init(void)
 {
-    setIdle();
+    ports[0].device     = PS2_KEYBOARD;
+    ports[0].clock_mask = PD_KBD_CLK;
+    ports[0].data_mask  = PD_KBD_DATA;
+
+    ports[1].device     = PS2_MOUSE;
+    ports[1].clock_mask = PD_MOUSE_CLK;
+    ports[1].data_mask  = PD_MOUSE_DATA;
+
+    setIdle(&ports[0]);
+    setIdle(&ports[1]);
+
+    EICRA = 0x0A;   // Interrupt on INT0 or INT1 falling edge
+    EIMSK = 0x03;   // Enable both INTx interrupts
 }
 
 /**
@@ -77,92 +83,111 @@ void ps2Init(void)
  *
  * Returns the response from the device on completion
  */
-uint8_t ps2SendByte(uint8_t port, uint8_t byte)
+uint8_t ps2SendByte(uint8_t port_num, uint8_t byte)
 {
-    if (port == 0) {
-        while (state != PS2_IDLE) { /* wait */ }
+    volatile ps2_port_t *port = &ports[port_num];
 
-        kbd_data_out = byte;
-        kbd_result   = 0;
+    while (port->state != PS2_IDLE) { /* wait */ }
 
-        setSending();
+    port->data_out = byte;
+    port->result   = 0;
 
-        while (kbd_result == 0) { /* wait */ }
-    }
+    setSending(port);
 
-    return kbd_result;
+    while (port->result == 0) { /* wait */ }
+
+    return port->result;
 }
 
 /**
- * This method is called from the PCINT1_vect
- * interrupt handler whenever it sees a pin
- * change on the PS/2 clock line.
+ * Service an interrupt on a PS/2 port. This function will be called
+ * whenever a falling edge is detected on the port's clock line.
  */
-void ps2Interrupt()
+void serviceInterrupt(volatile ps2_port_t *port)
 {
-    if (state == PS2_SENDING) {
-        ++kbd_bits;
+    if (port->state == PS2_SENDING) {
+        ++port->bits;
 
-        if (kbd_bits < 9) {
-            setBit(kbd_data_out & 1);
-            kbd_parity += kbd_data_out & 1;
+        if (port->bits < 9) {
+            setBit(port, port->data_out & 1);
+            port->parity += port->data_out & 1;
 
-            kbd_data_out >>= 1;
+            port->data_out >>= 1;
         }
-        else if (kbd_bits == 9) {
-            setBit(!(kbd_parity & 1));
+        else if (port->bits == 9) {
+            setBit(port, !(port->parity & 1));
         }
-        else if (kbd_bits == 10) {
+        else if (port->bits == 10) {
             // stop bit
-            setBit(1);
+            setBit(port, 1);
         }
-        else if (kbd_bits == 11) {
+        else if (port->bits == 11) {
             // ack bit
-            setIdle();
+            setIdle(port);
         }
     }
-    else if (state == PS2_IDLE) {
-        if (!getBit()) {
-            setReceiving();
+    else if (port->state == PS2_IDLE) {
+        if (!getBit(port)) {
+            setReceiving(port);
         }
     }
-    else if (state == PS2_RECEIVING) {
-        ++kbd_bits;
+    else if (port->state == PS2_RECEIVING) {
+        ++port->bits;
 
-        if (kbd_bits < 9) {
-            kbd_data_in >>= 1;
+        if (port->bits < 9) {
+            port->data_in >>= 1;
 
-            if (getBit()) {
-                kbd_data_in |= 0x80;
+            if (getBit(port)) {
+                port->data_in |= 0x80;
 
-                ++kbd_parity;
+                ++port->parity;
             }
         }
-        else if (kbd_bits == 9)  { // parity
+        else if (port->bits == 9)  { // parity
         }
         else { // stop bit
-            switch (kbd_data_in) {
+            switch (port->data_in) {
                 case PS2_ACK:
                 case PS2_ERROR:
-                    kbd_result = kbd_data_in;
-                    setIdle();
+                    port->result = port->data_in;
+                    setIdle(port);
+
                     break;
                 case PS2_RESEND:
-                    if (--kbd_resend) {
-                        setSending();
+                    if (--port->resend) {
+                        setSending(port);
                     }
                     else {
-                        kbd_result = PS2_ERROR;
+                        port->result = PS2_ERROR;
 
-                        setIdle();
+                        setIdle(port);
                     }
+
                     break;
                 default:
-                    kbd_result = PS2_ERROR;
-                    kbdProcessData(kbd_data_in);
-                    setIdle();
+                    port->result = PS2_ERROR;
+                    setIdle(port);
+
+                    switch(port->device) {
+                        case PS2_KEYBOARD:
+                            kbdProcessData(port->data_in);
+                            break;
+                        default:
+                            break;
+                    }
+
                     break;
             }
         }
     }
+}
+
+ISR(INT0_vect)
+{
+    serviceInterrupt(&ports[0]);
+}
+
+ISR(INT1_vect)
+{
+    serviceInterrupt(&ports[1]);
 }
