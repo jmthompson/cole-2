@@ -9,7 +9,6 @@
         .export vga_console_init
 
         .import kbd_read
-        .import getc_seriala
         .import __SYSDP_START__
 
 BELL     =  $07
@@ -119,10 +118,7 @@ vga_reset:
         rtl
 
 vga_read:
-        jsl     kbd_read
-        bcs     @done
-        jml     getc_seriala
-@done:  rtl
+        jml     kbd_read
 
 vga_write:
         longm
