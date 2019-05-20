@@ -59,6 +59,11 @@ console_cls     := console_bell+4
 console_read    := console_cls+4
 console_write   := console_read+4
 
+        .segment "SYSDATA": far
+
+syscall_trampoline:
+        .res    3
+
         .segment "BUFFERS"
 
 ibuff:  .res    256
@@ -317,45 +322,143 @@ startup_banner:
 
 @bar:   .byte   $F0, $F0, $F0, $F0, $F0, 00
 
+syscall_test:
+        lda     #$42
+        sta     $014242
+        rtl
+
+syscall_readln:
+        rtl
+
+syscall_writeln:
+        longm
+        lda     $03
+        pha
+        lda     $01
+        pha
+        shortm
+        jsl     console_writeln
+        rtl
+
+.macro  syscall     func, psize
+        .faraddr    func
+        .byte       psize
+.endmacro
+
 syscall_table:
-        .faraddr    console_read-1
-        .faraddr    console_write-1
-        .faraddr    console_readln-1
-        .faraddr    console_writeln-1
+        syscall     syscall_test, 0
+        syscall     console_read, 0
+        syscall     console_write, 0
+        syscall     syscall_readln, 4
+        syscall     syscall_writeln, 4
 
-syscall_max = (*-syscall_table)/2
+syscall_max = (*-syscall_table)/4
 
-syscall:
+syscall_dispatch:
+
+; syscall stack frame
+@copsig  := 1                   ; Pointer to COP signature byte
+@cf_size := @copsig + 4         ; Size of caller's stack frame (size of parameters)
+@y_reg   := @cf_size + 2        ; Y
+@x_reg   := @y_reg + 2          ; X
+@a_reg   := @x_reg + 2          ; A
+@d_reg   := @a_reg + 2          ; D
+@db_reg  := @d_reg + 2          ; DB
+@sc_size := @db_reg + 1 - @copsig
+
+; COP instruction stack frame
+@p_reg   := @db_reg + 1         ; P
+@pc_reg  := @p_reg  + 1         ; PC
+@pb_reg  := @pc_reg + 2         ; PB
+@cop_size := @pb_reg + 1 - @p_reg
+
+; Start of parameters passed by caller
+@params  := @pb_reg + 1
+
         longmx
+
+        phb
+        phd
         pha
         phx
         phy
-        phd
-        ldaw    #DIRECTPAGE
-        tcd
-        shortmx
+        pha                     ; Make space for our local variables
+        pha                     ; """
+        pha                     ; """
+        tsc
+        tcd                     ; DP now points to our local stack frame
         cli
-        txa
-        and     #255
-        beq     @error
+
+        lda     @pc_reg
+        dec
+        sta     @copsig
+        shortm
+        lda     @pb_reg
+        sta     @copsig+2
+
+        lda     [@copsig]
         cmp     #syscall_max
         bge     @error
+        longm
+        andw    #255
+        asl
         asl
         tax
-        ; do it
 
-        pha
+        shortm
+        lda     f:syscall_table+3,x     ; Parameter frame size
+        sta     @cf_size
+        stz     @cf_size+1
+
+        lda     f:syscall_table+2,x     ; Bank byte of handler
+        sta     syscall_trampoline+3
+        longm
+        lda     f:syscall_table,x       ; Bank address of handler
+        sta     syscall_trampoline+1
+        phd                             ; save our DP for after dispatch
+        lda     @a_reg                  ; Grab A; it might be a parameter
+        pha                             ; save it while we switch direct pages
+        tdc
+        clc
+        adcw    #@sc_size+@cop_size
+        tcd
+        pla
+
+        shortmx
+        jsl     syscall_trampoline
+
         pld
+        longmx
+        lda     @cf_size
+        beq     @nocopy
+
+        tsc
+        clc
+        adcw    #@sc_size+@cop_size
+        tax                             ; copy from end of cop stack frame
+        adc     @cf_size
+        tay                             ; copy to end of params frame
+        ldaw    #@sc_size+@cop_size-1   ; copy local + cop frame
+        mvp     0,0                     ; remove parameters
+        tya                             ; Y will end up one byte lower than the last byte written
+        tcs                             ;  which is exactly where our stack frame starts
+
+@nocopy:
+        ply                             ; remove space used for local vars
+        ply                             ; """
+        ply                             ; """
         ply
         plx
         pla
+        pld
+        plb
         rti
 @error: brk     $00
 
         .segment "LOWROM"
 
 sysentry:
-        jml     syscall
+        jml     syscall_dispatch
 
 sysreset:
         sei
@@ -369,6 +472,9 @@ sysreset:
         ldaw    #STACKTOP
         tcs
         shortm
+
+        lda     #$5C                ; JML $xxyyzz
+        sta     syscall_trampoline  ; Init syscall trampoline vector
 
         jsr     via_init
         jsr     uart_init
