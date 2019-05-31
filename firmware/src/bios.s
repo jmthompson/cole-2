@@ -48,8 +48,13 @@
 
         .export print_hex
 
-DIRECTPAGE = __SYSDP_START__
-STACKTOP   = __SYSSTACK_START__ + __SYSSTACK_SIZE__ - 1
+KERNEL_DB   = $00
+DIRECTPAGE  = __SYSDP_START__
+STACKTOP    = __SYSSTACK_START__ + __SYSSTACK_SIZE__ - 1
+
+; Processor status register bits
+PREG_I      =   %00000100
+PREG_C      =   %00000001
 
         .segment "SYSVEC"
 
@@ -387,8 +392,21 @@ syscall_dispatch:
         pha                     ; """
         tsc
         tcd                     ; DP now points to our local stack frame
-        cli
 
+        shortm
+
+        lda     #KERNEL_DB
+        pha
+        plb                     ; Set kernel data bank
+
+        lda     @p_reg
+        and     #~PREG_C&$FF    ; clear carry
+        sta     @p_reg
+        bit     #PREG_I         ; were interrupts disabled?
+        bne     @noirq
+        cli                     ; no, so re-enable them
+
+@noirq: longm
         lda     @pc_reg
         dec
         sta     @copsig
@@ -422,12 +440,17 @@ syscall_dispatch:
         clc
         adcw    #@sc_size+@cop_size
         tcd
-        pla
+        pla                             ; restore A from caller
 
         shortmx
         jsl     syscall_trampoline
-
-        pld
+        sta     @a_reg                  ; return value of A to caller
+        bcc     @noerr
+        lda     @p_reg
+        ora     #PREG_C                 ; set carry on return to caller
+        sta     @p_reg
+        
+@noerr: pld
         longmx
         lda     @cf_size
         beq     @nocopy
@@ -473,6 +496,10 @@ sysreset:
         tcs
         shortm
 
+        lda     #KERNEL_DB
+        pha
+        plb
+
         lda     #$5C                ; JML $xxyyzz
         sta     syscall_trampoline  ; Init syscall trampoline vector
 
@@ -500,7 +527,7 @@ sysreset:
         jml     monitor_start
 
 sysnmi:
-        rep     #$30
+        longmx
         phb
         phd
         pha
@@ -508,7 +535,10 @@ sysnmi:
         phy
         ldaw    #DIRECTPAGE
         tcd
-        sep     #$30
+        shortmx
+        lda     #KERNEL_DB
+        pha
+        plb
         cli
         jml     monitor_nmi
 
@@ -522,8 +552,8 @@ sysirq:
         ldaw    #DIRECTPAGE
         tcd
         sep     #$30
-        pha     ; assumes low byte of DIRECTPAGE is $00
-        plb
+        pha                 ; Low byte of DIRECTPAGE will always be $00
+        plb                 ; Set interrupt data bank
 
         jsr     via_irq
         jsr     uart_irq
@@ -538,7 +568,7 @@ sysirq:
         rti
 
 sysbrk:
-        rep     #$30
+        longmx
         phb
         phd
         pha
@@ -546,7 +576,10 @@ sysbrk:
         phy
         ldaw    #DIRECTPAGE
         tcd
-        sep     #$30
+        shortmx
+        lda     #KERNEL_DB
+        pha
+        plb
         cli
         jml     monitor_brk
 
