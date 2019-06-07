@@ -23,8 +23,7 @@ MOD_KEYUP   = $80
 
         .segment "SYSDATA": far
 
-kbd_buffer:
-        .res    BUFFER_SIZE
+kbd_buffer: .res BUFFER_SIZE
 
         .segment "ZEROPAGE"
 
@@ -49,11 +48,15 @@ kbd_init:
 ; On exit the contents of X are undefined
 ;
 kbd_handler:
-        ldx     wr_idx
-        inx
-        cpx     rd_idx      ; Are we about to overrun the buffer?
+        xba
+        lda     wr_idx
+        inc
+        and     #BUFFER_SIZE-1
+        cmp     rd_idx      ; Are we about to overrun the buffer?
         beq     @exit       ; If yes drop this byte
-        sta     kbd_buffer-1,x
+        tax
+        xba
+        sta     kbd_buffer,x
         stx     wr_idx
 @exit:  rts
 
@@ -227,8 +230,13 @@ get_data:
         cpx     wr_idx
         beq     @empty
         lda     kbd_buffer,x
+        xba
         inx
+        txa
+        and     #BUFFER_SIZE-1
+        tax
         stx     rd_idx 
+        xba
         sec
         rts
 @empty: clc
