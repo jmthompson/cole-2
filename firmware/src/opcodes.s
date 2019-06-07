@@ -378,9 +378,9 @@ opcode_table:
 ; Addressing mode table, maps opcodes to their addressing modes
 ;;
 am_table:
-        .byte AM_implied
+        .byte AM_d
         .byte AM_dxi
-        .byte AM_implied
+        .byte AM_d
         .byte AM_sr
         .byte AM_d
         .byte AM_d

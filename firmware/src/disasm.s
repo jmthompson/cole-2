@@ -103,7 +103,7 @@ print_instruction:
         pea     ^mnemonic_table     ; high word
         pha                         ; low word
         shortm
-        jsl     console_writeln
+        call    SYS_CONSOLE_WRITELN
 
         ldx     #3
         jsr     print_spaces
@@ -265,9 +265,34 @@ disp_am_axy:
         rts
 
 disp_am_pcr:
+        putc    #'$'
+        ldy     #1
+        lda     [instr],y
+        longm
+        andw    #$00ff
+        clc
+        adc     instr
+        shortm
+        pha                 ; save low byte
+        xba
+        jsl     print_hex   ; print high byte
+        pla
+        jsl     print_hex   ; print low byte
         rts
 
 disp_am_pcrl:
+        putc    #'$'
+        ldy     #1
+        longm
+        lda     [instr],y
+        clc
+        adc     instr
+        shortm
+        pha                 ; save low byte
+        xba
+        jsl     print_hex   ; print high byte
+        pla
+        jsl     print_hex   ; print low byte
         rts
 
 disp_am_ai:
