@@ -2,6 +2,23 @@
         .a8
         .i8
 
+        .include "sys/syscall.s"
+
+        .import __SYSDP_START__
+
+KERNEL_DB = $00
+KERNEL_DP = __SYSDP_START__
+
+.macro  set_kernel_dp
+        longm
+        phd
+        pha
+        ldaw    #KERNEL_DP
+        tcd
+        pla
+        shortm
+.endmacro
+
 ; Increment a 32-bit value in memory
 .macro  inc32   addr
         longm

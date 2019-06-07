@@ -9,174 +9,42 @@
 
         .import uart_init
         .import uart_irq
-        .import serial_console_init
-        .import vga_console_init
         .import kbd_init
         .import monitor_start
         .import monitor_brk
         .import monitor_nmi
         .import via_init
         .import via_irq
-        .import get_console_mode
 
+        .import console_init
+        .import console_attach
+        .import console_reset
+        .import console_read
+        .import console_readln
+        .import console_write
+        .import console_writeln
         .import jros_init
 
         .import __SYSDP_START__
         .import __SYSSTACK_START__
         .import __SYSSTACK_SIZE__
-        .import __SYSVEC_START__
 
         ;; from buildinfo.s
         .import hw_revision
         .import rom_version
         .import rom_date
 
-        .export sysirq
-        .export sysnmi
-        .export sysreset
-
-        .export ibuff
-        .exportzp ibuffp
-
-        .export console_cls
-        .export console_bell
-        .export console_read
-        .export console_readln
-        .export console_reset
-        .export console_write
-        .export console_writeln
-
-        .export print_hex
-
-KERNEL_DB   = $00
-DIRECTPAGE  = __SYSDP_START__
 STACKTOP    = __SYSSTACK_START__ + __SYSSTACK_SIZE__ - 1
 
 ; Processor status register bits
 PREG_I      =   %00000100
 PREG_C      =   %00000001
 
-        .segment "SYSVEC"
-
-console_reset   := __SYSVEC_START__
-console_bell    := console_reset+4
-console_cls     := console_bell+4
-console_read    := console_cls+4
-console_write   := console_read+4
-
         .segment "SYSDATA": far
 
-syscall_trampoline:
-        .res    3
-
-        .segment "BUFFERS"
-
-ibuff:  .res    256
-
-        .segment "ZEROPAGE"
-
-ibuffp: .res    2
+syscall_trampoline: .res 4
 
         .segment "HIGHROM"
-
-;;
-; Interactively read a line of text from the console. On exit, the input
-; buffer will contain the newly-read line. The contents of the buffer are
-; guaranteed to remain until the next call to this function.
-;
-; All registers preserved
-;
-console_readln:
-        pha
-        xba
-        pha
-        phx
-        ldx     #0
-@loop:  jsl     console_read
-        bcc     @loop
-        cmp     #BS
-        beq     @bs
-        cmp     #CR
-        beq     @eol
-        cmp     #' '
-        bcc     @loop
-        jsl     console_write 
-        sta     ibuff,x
-        inx
-        bne     @loop
-        dex
-@eol:   stz     ibuff,x
-        longm
-        ldaw    #ibuff
-        sta     ibuffp
-        shortm
-        plx
-        pla
-        xba
-        pla
-        rtl
-@bs:    cpx     #0
-        beq     @loop
-        jsl     console_write 
-        dex
-        bra     @loop
-
-;;
-; Print a null-terminated string up to 255 characters in length.
-; The 4-byte address of the string to print should be on the stack,
-; MSB first:
-;
-; PEA   ^str
-; PEA   str
-; JSL   console_writeln
-; ...
-;
-console_writeln:
-
-; register stack frame
-@y_reg   = 1
-@x_reg   = @y_reg + 2
-@a_reg   = @x_reg + 2
-@d_reg   = @a_reg + 2
-@s_regsf = @d_reg + 2 - @y_reg
-
-@retaddr = @d_reg + 2
-@s_cpusf = 3
-
-@str     = @retaddr + 3
-@s_argsf = 4
-
-        longmx
-        phd
-        pha
-        phx
-        phy
-        tsc
-        tcd
-        shortmx
-        ldy     #0
-@loop:  lda     [@str],y
-        beq     @exit
-        jsl     console_write
-        iny
-        bne     @loop
-@exit:  longmx
-        tsc
-        clc
-        adcw    #@s_regsf+@s_cpusf
-        tax                             ; copy from 
-        adcw    #@s_argsf
-        tay
-        ldaw    #@s_regsf+@s_cpusf-1
-        mvp     0,0
-        tya
-        tcs
-        ply
-        plx
-        pla
-        pld
-        shortmx
-        rtl
 
 ;;
 ; Print the 8-bit number in the accumulator in decimal
@@ -206,46 +74,19 @@ print_decimal8:
 @digit: pha
         txa
         ora     #'0'
-        jsl     console_write
-        pla
+        call    SYS_CONSOLE_WRITE
+        pla 
         rts
-
 ;;
-; Print the contents of the accumulator as a two-digit hexadecimal number.
 ;
-; On exit:
-;
-; All registers preserved
-;
-print_hex:
-        pha
-        pha
-        lsr
-        lsr
-        lsr
-        lsr
-        jsr     @digit
-        pla
-        and     #$0f
-        jsr     @digit
-        pla
-        rtl
-@digit: and     #$0f
-        ora     #'0'
-        cmp     #'9'+1
-        blt     @print
-        adc     #6
-@print: jsl     console_write
-        rts
-
 ; Print the boot banner to the console
 ;
 startup_banner:
         ldx     #0
 @loop:  lda     #$01
-        jsl     console_write
+        call    SYS_CONSOLE_WRITE
         lda     f:@colors,x
-        jsl     console_write
+        call    SYS_CONSOLE_WRITE
         puts    @bar
         inx
         cpx     #16
@@ -327,38 +168,25 @@ startup_banner:
 
 @bar:   .byte   $F0, $F0, $F0, $F0, $F0, 00
 
-syscall_test:
-        lda     #$42
-        sta     $014242
-        rtl
-
-syscall_readln:
-        rtl
-
-syscall_writeln:
-        longm
-        lda     $03
-        pha
-        lda     $01
-        pha
-        shortm
-        jsl     console_writeln
-        rtl
-
 .macro  syscall     func, psize
         .faraddr    func
         .byte       psize
 .endmacro
 
 syscall_table:
-        syscall     syscall_test, 0
+        syscall     console_attach, 0
         syscall     console_read, 0
         syscall     console_write, 0
-        syscall     syscall_readln, 4
-        syscall     syscall_writeln, 4
+        syscall     console_readln, 4
+        syscall     console_writeln, 4
 
 syscall_max = (*-syscall_table)/4
 
+        .segment "LOWROM"
+
+;;
+; COP handler; dispatches to the syscall indicated by the signature byte
+;
 syscall_dispatch:
 
 ; syscall stack frame
@@ -478,11 +306,6 @@ syscall_dispatch:
         rti
 @error: brk     $00
 
-        .segment "LOWROM"
-
-sysentry:
-        jml     syscall_dispatch
-
 sysreset:
         sei
         cld
@@ -490,7 +313,7 @@ sysreset:
         xce
 
         longm
-        ldaw    #DIRECTPAGE
+        ldaw    #KERNEL_DP
         tcd
         ldaw    #STACKTOP
         tcs
@@ -507,19 +330,9 @@ sysreset:
         jsr     uart_init
         jsr     kbd_init
 
-        jsr     get_console_mode
-        bne     @serial
+        cli
 
-        jsl     vga_console_init
-        bra     @cont
-
-@serial:
-        jsl     serial_console_init
-
-@cont:  cli
-
-        jsl     console_reset
-        jsl     console_cls
+        jsl     console_init
         jsl     startup_banner
 
         ;jsl     jros_init        ; Initialize JR/OS
@@ -533,7 +346,7 @@ sysnmi:
         pha
         phx
         phy
-        ldaw    #DIRECTPAGE
+        ldaw    #KERNEL_DP
         tcd
         shortmx
         lda     #KERNEL_DB
@@ -549,10 +362,10 @@ sysirq:
         pha
         phx
         phy
-        ldaw    #DIRECTPAGE
+        ldaw    #KERNEL_DP
         tcd
         sep     #$30
-        pha                 ; Low byte of DIRECTPAGE will always be $00
+        pha                 ; Low byte of KERNEL_DP will always be $00
         plb                 ; Set interrupt data bank
 
         jsr     via_irq
@@ -574,7 +387,7 @@ sysbrk:
         pha
         phx
         phy
-        ldaw    #DIRECTPAGE
+        ldaw    #KERNEL_DP
         tcd
         shortmx
         lda     #KERNEL_DB
@@ -585,17 +398,17 @@ sysbrk:
 
         .segment "HWVECTORS"
 
-        .addr   sysentry    ; $FFE4 (cop native)
-        .addr   sysbrk      ; $FFE6 (brk native)
-        .addr   sysreset    ; $FFE8 (abort native)
-        .addr   sysnmi      ; $FFEA (nmi native)
-        .addr   0           ; $FFEC (not used)
-        .addr   sysirq      ; $FFEE (irq native)
-        .addr   0           ; $FFF0 (not used)
-        .addr   0           ; $FFF2 (not used)
-        .addr   sysreset    ; $FFF4 (cop emulation)
-        .addr   0           ; $FFF6 (not used)
-        .addr   sysreset    ; $FFF8 (abort emulation)
-        .addr   sysreset    ; $FFFA (nmi emulation)
-        .addr   sysreset    ; $FFFC (reset)
-        .addr   sysreset    ; $FFFE (irq emulation)
+        .addr   syscall_dispatch    ; $FFE4 (cop native)
+        .addr   sysbrk              ; $FFE6 (brk native)
+        .addr   sysreset            ; $FFE8 (abort native)
+        .addr   sysnmi              ; $FFEA (nmi native)
+        .addr   0                   ; $FFEC (not used)
+        .addr   sysirq              ; $FFEE (irq native)
+        .addr   0                   ; $FFF0 (not used)
+        .addr   0                   ; $FFF2 (not used)
+        .addr   sysreset            ; $FFF4 (cop emulation)
+        .addr   0                   ; $FFF6 (not used)
+        .addr   sysreset            ; $FFF8 (abort emulation)
+        .addr   sysreset            ; $FFFA (nmi emulation)
+        .addr   sysreset            ; $FFFC (reset)
+        .addr   sysreset            ; $FFFE (irq emulation)

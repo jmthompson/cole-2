@@ -6,10 +6,10 @@
         .include "common.s"
         .include "sys/console.s"
 
-        .export vga_console_init
+        .export vga_reset
+        .export vga_write
 
         .import kbd_read
-        .import __SYSDP_START__
 
 BELL     =  $07
 LBRACKET =  '['
@@ -38,55 +38,6 @@ vram_addr:  .res    2
 line_buffer: .res   ROW_SIZE
 
         .segment "HIGHROM"
-
-vga_console_init:
-        lda     #$5c
-        sta     console_bell
-        sta     console_cls
-        sta     console_reset
-        sta     console_read
-        sta     console_write
-
-        lda     #<vga_bell
-        sta     console_bell+1
-        lda     #>vga_bell
-        sta     console_bell+2
-        lda     #^vga_bell
-        sta     console_bell+3
-
-        lda     #<vga_cls
-        sta     console_cls+1
-        lda     #>vga_cls
-        sta     console_cls+2
-        lda     #^vga_cls
-        sta     console_cls+3
-
-        lda     #<vga_reset
-        sta     console_reset+1
-        lda     #>vga_reset
-        sta     console_reset+2
-        lda     #^vga_reset
-        sta     console_reset+3
-
-        lda     #<vga_read
-        sta     console_read+1
-        lda     #>vga_read
-        sta     console_read+2
-        lda     #^vga_read
-        sta     console_read+3
-
-        lda     #<vga_write
-        sta     console_write+1
-        lda     #>vga_write
-        sta     console_write+2
-        lda     #^vga_write
-        sta     console_write+3
-
-        rtl
-
-vga_bell:
-        lda     #BELL
-        rtl
 
 vga_cls:
         ldx     #1              ; vram lo
@@ -117,27 +68,18 @@ vga_reset:
         jsr     move_cursor     ; move it to 0,0
         rtl
 
-vga_read:
-        jml     kbd_read
-
 vga_write:
-        longm
-        pha
         phx
         phy
-        phd
-        ldaw    #__SYSDP_START__
-        tcd
-        shortm
-        lda     5,s
         ldx     command
         bne     @cmd
         cmp     #' '
         blt     @ctrl
         ldx     cursor_x
         ldy     cursor_y
+        pha
         jsr     calc_vram_ptr
-        lda     5,s
+        pla
         sta     vga_vram
         lda     text_attr
         sta     vga_vram
@@ -149,12 +91,8 @@ vga_write:
         beq     @cr
         cmp     #BS
         beq     @bs
-@exit:  longm
-        pld
-        ply
+@exit:  ply
         plx
-        pla
-        shortm
         rtl
 @attr:  sta     command
         bra     @exit

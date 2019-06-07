@@ -8,7 +8,6 @@
         .export via_init
         .export via_irq
         .export set_led
-        .export get_console_mode
 
         .import kbd_handler
 
@@ -89,15 +88,6 @@ via_irq:
         ; TODO other interrupts, including via 2
  
 @exit:  rts
-
-;;
-; Return the status of the console select jumper. On
-; exit A will be non-zero if the jumper is installed.
-;
-get_console_mode:
-        lda     via1_base+via_portb
-        and     #PB_CONSOLE
-        rts
 
 ;;
 ; Set the status of the activity LED to the value

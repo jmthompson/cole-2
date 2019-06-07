@@ -22,6 +22,16 @@
         .exportzp start_loc
         .exportzp end_loc
 
+; Get a single character
+.macro  getc
+        lda     [ibuffp]
+.endmacro
+
+; Advance to the next character
+.macro  nextc
+        inc      ibuffp
+.endmacro
+
         .segment "ZEROPAGE"
 
 maxhex  = 8
@@ -32,6 +42,7 @@ address:    .res    3
 start_loc:  .res    3
 end_loc:    .res    3
 row_end:    .res    1
+ibuffp:     .res    3
 
         .segment "SYSDATA": far
 
@@ -44,6 +55,9 @@ pc_reg:     .res    2
 pb_reg:     .res    1
 db_reg:     .res    1
 sr_reg:     .res    1
+
+            .align 256
+ibuff:      .res   256
 
         .segment "HIGHROM"
 
@@ -122,9 +136,8 @@ monitor_loop:
         puteol
         putc    #'*'
         putc    #'>'
-        gets
+        gets    ibuff
         puteol
-        longm
         jsr     parse_ibuff
         bcs     monitor_loop
         jsr     dispatch
@@ -191,6 +204,12 @@ parsehex:
 ; Parse the current ibuff
 ;
 parse_ibuff:
+        lda     #<ibuff
+        sta     ibuffp
+        lda     #>ibuff
+        sta     ibuffp+1
+        lda     #^ibuff
+        sta     ibuffp+2
         jsr     parsehex
         longm
         bcc     @nostart
@@ -239,7 +258,7 @@ parse_ibuff:
         sec
         rts
 
-;
+;;
 ; Display the position of a syntax error in the input buffer
 ; The error is assumed to be at the current input index.
 ;
@@ -264,7 +283,7 @@ print_spaces:
         pha
         phx
         lda     #' '
-@loop:  jsl     console_write
+@loop:  call    SYS_CONSOLE_WRITE
         dex
         bne     @loop
         plx
@@ -377,7 +396,7 @@ dump_memory:
         bcs     @printable
         lda     #'?'
 @printable:
-        jsl     console_write
+        call    SYS_CONSOLE_WRITE
         lda     start_loc
         cmp     row_end
         beq     @endofrow

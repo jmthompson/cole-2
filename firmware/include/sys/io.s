@@ -1,17 +1,7 @@
-; Get a single character
-.macro  getc
-        lda     (ibuffp)
-.endmacro
-
-; Advance to the next character
-.macro  nextc
-        inc     ibuffp
-.endmacro
-
 ; Output a single character
 .macro  putc    char
         lda     char
-        jsl     console_write
+        call    SYS_CONSOLE_WRITE
 .endmacro
 
 ; Output a CR
@@ -20,15 +10,17 @@
 .endmacro
 
 ; Read a single line of input into the input buffer
-.macro  gets
-        jsl     console_readln
+.macro  gets    buffer
+        pea     .hiword(buffer)
+        pea     .loword(buffer)
+        call    SYS_CONSOLE_READLN
 .endmacro
 
 ; Output a null-terminated string
 .macro  puts    string
-        pea     ^string
-        pea     string
-        jsl     console_writeln
+        pea     .hiword(string)
+        pea     .loword(string)
+        call    SYS_CONSOLE_WRITELN
 .endmacro
 
 ; Output a 2-digit hex value

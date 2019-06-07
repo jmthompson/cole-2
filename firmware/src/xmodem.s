@@ -45,7 +45,6 @@
 
         .import getc_seriala
         .import putc_seriala
-        .import console_writeln
 
         .export XModemSend
         .export XModemRcv
@@ -67,7 +66,7 @@
 .macro  puts    string
         pea     ^string
         pea     string
-        jsl     console_writeln
+        call    SYS_CONSOLE_WRITELN
 .endmacro
 
 ;-------------------------- The Code ----------------------------

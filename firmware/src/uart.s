@@ -15,11 +15,7 @@
         .export putc_seriala
         .export putc_serialb
 
-        .import __SYSDP_START__
-
         .export jiffies
-
-DIRECTPAGE = __SYSDP_START__
 
 buffer_size = 256
 
@@ -275,15 +271,7 @@ getc_serialb:
 ; have an empty slot before returning.
 ;
 putc_seriala:
-        php
-        phd
         phx
-        longm
-        pha
-        ldaw    #DIRECTPAGE
-        tcd
-        pla
-        shortm
         ldx     txa_wri
         inx
 @wait:  cpx     txa_rdi             ; is the buffer full?
@@ -294,16 +282,12 @@ putc_seriala:
         sta     txa_ibuf,x          ; Store the byte in the output buffer
         inx
         stx     txa_wri             ; ... and update write index
-        pha
         lda     #$80
         tsb     txa_on              ; is the transmitter enabled?
         bne     :+                  ; if yes, we're done
         lda     #nxpcrtxe
         sta     nxp_base+nx_cra     ; Enable transmitter
-:       pla
-        plx
-        pld
-        plp
+:       plx
         rtl
 
 ;
@@ -312,23 +296,24 @@ putc_seriala:
 ; have an empty slot before returning.
 ;
 putc_serialb:
+        phx
         ldx     txb_wri
         inx
 @wait:  cpx     txb_rdi             ; is the buffer full?
-        beq     @wait               ; if yes loop until some space opens up
+        bne     @store              ; if no then store
+        wai                         ; yes, so wait for an interrupt to hopefully clear some space
+        bra     @wait               ; and then check again
+@store: dex
         sta     txb_ibuf,x          ; Store the byte in the output buffer
+        inx
         stx     txb_wri             ; ... and update write index
-        bit     txb_on              ; is the transmitter enabled?
-        bmi     :+                  ; if yes, we're done
-        pha
-        sei
+        lda     #$80
+        tsb     txb_on              ; is the transmitter enabled?
+        bne     :+                  ; if yes, we're done
         lda     #nxpcrtxe
         sta     nxp_base+nx_crb     ; Enable transmitter
-        lda     #$80
-        sta     txb_on              ; ...and mark it as such
-        cli
-        pla
-:       rtl
+:       plx
+        rtl
 
 ;PHILIPS/NXP DUAL UART INITIALIZATION DATA
 ;
