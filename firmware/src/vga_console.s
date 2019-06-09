@@ -39,25 +39,6 @@ line_buffer: .res   ROW_SIZE
 
         .segment "HIGHROM"
 
-vga_cls:
-        ldx     #1              ; vram lo
-        lda     #<(TEXT_SIZE-1)
-        jsr     set_register
-        inx                     ; vram hi
-        lda     #>(TEXT_SIZE-1)
-        jsr     set_register
-        ldy     #ROWS
-@row:   ldx     #COLS
-@col:   lda     #' '
-        sta     vga_vram
-        lda     text_attr
-        sta     vga_vram
-        dex
-        bne     @col
-        dey
-        bne     @row
-        rtl
-
 vga_reset:
         lda     #DEFAULT_COLOR
         sta     text_attr
@@ -66,6 +47,7 @@ vga_reset:
         stz     cursor_y
         jsr     cursor_on       ; turn on the cursor
         jsr     move_cursor     ; move it to 0,0
+        jsr     clear_screen
         rtl
 
 vga_write:
@@ -91,6 +73,8 @@ vga_write:
         beq     @cr
         cmp     #BS
         beq     @bs
+        cmp     #CLS
+        beq     @cls
 @exit:  ply
         plx
         rtl
@@ -102,9 +86,30 @@ vga_write:
         bra     @exit
 @bs:    jsr     cursor_backward
         bra     @exit
+@cls:   jsr     clear_screen
+        bra     @exit
 @cmd:   sta     text_attr
         stz     command
         bra     @exit
+
+clear_screen:
+        ldx     #1              ; vram lo
+        lda     #<(TEXT_SIZE-1)
+        jsr     set_register
+        inx                     ; vram hi
+        lda     #>(TEXT_SIZE-1)
+        jsr     set_register
+        ldy     #ROWS
+@row:   ldx     #COLS
+@col:   lda     #' '
+        sta     vga_vram
+        lda     text_attr
+        sta     vga_vram
+        dex
+        bne     @col
+        dey
+        bne     @row
+        rts
 
 cursor_on:
         ldx     #3      ; cursor control reg

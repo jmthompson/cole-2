@@ -89,6 +89,8 @@ console_readln:
         beq     @bs
         cmp     #CR
         beq     @eol
+        cmp     #CLS
+        beq     @cls
         cmp     #' '
         bcc     @loop
         sta     [@buffer],y
@@ -103,6 +105,8 @@ console_readln:
         beq     @loop
         jsl     console_write 
         dey
+        bra     @loop
+@cls:   jsl     console_write
         bra     @loop
 
 ;;
