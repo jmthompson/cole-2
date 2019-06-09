@@ -23,6 +23,12 @@
         .import console_readln
         .import console_write
         .import console_writeln
+
+        .import getc_seriala
+        .import putc_seriala
+        .import getc_serialb
+        .import putc_serialb
+
         .import jros_init
 
         .import __SYSDP_START__
@@ -168,6 +174,30 @@ startup_banner:
 
 @bar:   .byte   $F0, $F0, $F0, $F0, $F0, 00
 
+read_seriala:
+        set_kernel_dp
+        jsl     getc_seriala
+        pld
+        rtl
+
+write_seriala:
+        set_kernel_dp
+        jsl     putc_seriala
+        pld
+        rtl
+
+read_serialb:
+        set_kernel_dp
+        jsl     getc_serialb
+        pld
+        rtl
+
+write_serialb:
+        set_kernel_dp
+        jsl     putc_serialb
+        pld
+        rtl
+
 .macro  syscall     func, psize
         .faraddr    func
         .byte       psize
@@ -179,6 +209,10 @@ syscall_table:
         syscall     console_write, 0
         syscall     console_readln, 4
         syscall     console_writeln, 4
+        syscall     read_seriala, 0
+        syscall     write_seriala, 0
+        syscall     read_serialb, 0
+        syscall     write_serialb, 0
 
 syscall_max = (*-syscall_table)/4
 
