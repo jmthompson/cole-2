@@ -270,8 +270,13 @@ disp_am_pcr:
         lda     [instr],y
         longm
         andw    #$00ff
-        clc
+        bitw    #$0080
+        beq     @pos
+        oraw    #$ff00
+@pos:   clc
         adc     instr
+        inc
+        inc
         shortm
         pha                 ; save low byte
         xba
@@ -287,6 +292,9 @@ disp_am_pcrl:
         lda     [instr],y
         clc
         adc     instr
+        inc
+        inc
+        inc
         shortm
         pha                 ; save low byte
         xba
