@@ -41,10 +41,7 @@
 ; data.   
 ;
         .include "common.s"
-        .include "sys/ascii.s"
-
-        .import getc_seriala
-        .import putc_seriala
+        .include "sys/console.s"
 
         .export XModemSend
         .export XModemRcv
@@ -52,21 +49,14 @@
         .exportzp xmeofp
 
 ; Get a single character
-.macro  getc
-        jsl     getc_seriala
+.macro  getc_ser
+        call    SYS_READ_SERIALA
 .endmacro
 
 ; Output a single character
-.macro  putc    char
+.macro  putc_ser char
         lda     char
-        jsl     putc_seriala
-.endmacro
-
-; Output a null-terminated string
-.macro  puts    string
-        pea     ^string
-        pea     string
-        call    SYS_CONSOLE_WRITELN
+        call    SYS_WRITE_SERIALA
 .endmacro
 
 ;-------------------------- The Code ----------------------------
@@ -122,7 +112,12 @@ XModemSend:
 @wait4crc:
         lda     #$ff        ; 3 seconds
         sta     retry2
-        jsr     GetByte
+        call    SYS_CONSOLE_READ
+        bcc     @noesc
+        cmp     #ESC        ; Did someone hit ESC on the console?
+        bne     @noesc
+        jmp     @prtabort   ; Abort the transfer
+@noesc: jsr     GetByte     ; Otherwise check the serial port
         bcc     @wait4crc   ; wait for something to come in...
         cmp     #'C'        ; is it the "C" to start a CRC xfer?
         beq     @ldbuffer
@@ -177,10 +172,10 @@ XModemSend:
         sta     Rbuff,Y
 @resend:
         ldx     #$00
-        putc    #SOH        ; send SOH
+        putc_ser #SOH       ; send SOH
 @sendblk:
         lda     Rbuff,X     ; Send 132 bytes in buffer to the console
-        jsr     putc_seriala
+        call    SYS_WRITE_SERIALA
         inx
         cpx     #$84        ; last byte?
         bne     @sendblk    ; no, get next
@@ -213,7 +208,7 @@ XModemRcv:
         lda     #$01
         sta     blkno       ; set block # to 1
 @startcrc:
-        putc    #'C'        ; "C" start with CRC mode
+        putc_ser #'C'       ; "C" start with CRC mode
         lda     #$FF    
         sta     retry2      ; set loop counter for ~3 sec delay
         jsr     GetByte     ; wait for input
@@ -272,7 +267,7 @@ XModemRcv:
         cmp     crc         ; compare to calculated lo CRC
         beq     @good       ; good CRC
 @bad:   jsr     Flush       ; flush the input buffer
-        putc    #NAK        ; send NAK to resend block
+        putc_ser #NAK       ; send NAK to resend block
         jmp     @startblk   ; start over, get the block again            
 @good:  ldy     #$00        ; set offset to zero
 @copy:  lda     Rbuff+2,Y   ; get data byte from buffer
@@ -287,9 +282,9 @@ XModemRcv:
         adc     #0
         sta     xmptr+1
         inc     blkno       ; done.  Inc the block #
-        putc    #ACK        ; send ACK
+        putc_ser #ACK       ; send ACK
         jmp     @startblk   ; get next block
-@done:  putc    #ACK        ; last block, send ACK and exit.
+@done:  putc_ser #ACK       ; last block, send ACK and exit.
         jsr     Flush       ; get leftover characters, if any
         jsr     Print_Good  ;
         rts
@@ -302,7 +297,7 @@ XModemRcv:
 ; wait for chr input and cycle timing loop
 GetByte:
         stz     retry       ; set low value of timing loop
-@loop:  getc                ; get chr from serial port, don't wait 
+@loop:  getc_ser            ; get chr from serial port, don't wait 
         bcs     @ok         ; got one, so exit
         dec     retry       ; no character received, so dec counter
         bne     @loop
@@ -315,7 +310,7 @@ GetByte:
 Flush:
         lda     #$70        ; flush receive buffer
         sta     retry2      ; flush until empty for ~1 sec.
-        getc
+        getc_ser
         bcs     Flush       ; if chr recvd, wait for another
         rts                 ; else done
 
