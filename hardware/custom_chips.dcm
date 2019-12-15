@@ -8,4 +8,9 @@ $CMP CBD
 D COLE-2 bus decode GAL
 $ENDCMP
 #
+$CMP CSC
+D COLE System Controller on Xilinx XC9572XL-VQ44
+F https://www.xilinx.com/support/documentation/data_sheets/ds057.pdf
+$ENDCMP
+#
 #End Doc Library

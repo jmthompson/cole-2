@@ -1,3 +1,4 @@
 (sym_lib_table
   (lib (name custom_chips)(type Legacy)(uri /home/jthompson/projects/cole-2/hardware/custom_chips.lib)(options "")(descr ""))
+  (lib (name cole-2-rescue)(type Legacy)(uri ${KIPRJMOD}/cole-2-rescue.lib)(options "")(descr ""))
 )
