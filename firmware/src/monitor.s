@@ -104,20 +104,20 @@ capture_registers:
         sta     a_reg
         lda     9,s
         sta     d_reg
-        lda     11,s
-        sta     db_reg
-        lda     14,s
+        lda     13,s
         dec
         dec
         sta     pc_reg
         tsc
-        sec
-        sbc     #16
+        clc
+        adcw    #15
         sta     sp_reg
         shortmx
-        lda     13,s
+        lda     11,s
+        sta     db_reg
+        lda     12,s
         sta     sr_reg
-        lda     16,s
+        lda     15,s
         sta     pb_reg
         rts
 

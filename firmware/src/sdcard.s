@@ -50,14 +50,14 @@ sdc_init:
         .faraddr @cmd08
         bcs     @initv1             ; Might be an older card
 
-        jsr     spi_transfer
+        jsl     spi_transfer
         bne     @error
-        jsr     spi_transfer
+        jsl     spi_transfer
         bne     @error
-        jsr     spi_transfer
+        jsl     spi_transfer
         cmp     #$01
         bne     @error
-        jsr     spi_transfer
+        jsl     spi_transfer
         cmp     #$AA
         bne     @error
 
@@ -73,7 +73,7 @@ sdc_init:
         .faraddr @acmd41
         beq     @setblksize
         lda     #15
-        jsr     wait_ms
+        jsl     wait_ms
         dex
         bne     @initv2
         bra     @error
@@ -83,7 +83,7 @@ sdc_init:
         .faraddr @cmd01
         bcc     @setblksize
         lda     #15
-        jsr     wait_ms
+        jsl     wait_ms
         dex
         bne     @initv1
         bra     @error
@@ -101,13 +101,13 @@ sdc_init:
 
         jsr     deselect
         clc
-        rts
+        rtl
 
 @cmd16: .byte   $50,$00,$00,$02,$00,$01
 
 @error: jsr     deselect
         sec
-        rts
+        rtl
 
 ; STATUS command, returns a list of all units, their offline status,
 ; and the device size in sectors
@@ -124,7 +124,7 @@ sdc_status:
 
         ldx     #0
 @read:  lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         sta     csd,X
         inx
         cpx     #16
@@ -199,7 +199,7 @@ sdc_status:
         sta     (device_cmd),Y  ; 0 units
 @exit:  jsr     deselect
         clc
-        rts
+        rtl
 
 @cmd09: .byte   $49,$00,$00,$00,$00,$01
 
@@ -246,13 +246,13 @@ sdc_rdblock:
         bra     @exit
 @recv:  ldy     #0
 @recv1: lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         sta     (jrtmp),Y
         iny
         bne     @recv1
         inc     jrtmp+1
 @recv2: lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         sta     (jrtmp),Y
         iny
         bne     @recv2
@@ -270,7 +270,7 @@ set_spi_mode:
         jsr     deselect
         ldx     #10
 @loop:  lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         dex
         bne     @loop
         rts
@@ -283,7 +283,7 @@ set_idle:
         .faraddr @cmd00
         bcc     @r1
         lda     #1
-        jsr     wait_ms
+        jsl     wait_ms
         dex
         bne     @retry
 @error: jsr     deselect
@@ -302,7 +302,7 @@ wait_rdy:
         lda     #$ff
         sta     jrtmp
 @loop:  lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         cmp     #SD_FILL
         beq     @ready
         dec     jrtmp
@@ -317,7 +317,7 @@ wait_rdy:
 wait_data:
         ldx     #255
 @wait:  lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         cmp     #$FE
         beq     @ok
         dex
@@ -357,13 +357,13 @@ send_cmd:
 
         ldy     #0
 @send:  lda     (jrtmp),Y
-        jsr     spi_transfer
+        jsl     spi_transfer
         iny
         cpy     #SD_CMD_SIZE
         bne     @send
         ldy     #17
 @wait:  lda     #SD_FILL
-        jsr     spi_transfer
+        jsl     spi_transfer
         bpl     @r1
         dey
         bne     @wait
@@ -386,11 +386,13 @@ send_cmd:
 
 select:
         ldx     #SD_DEVICE_ID
-        jmp     spi_select
+        jsl     spi_select
+        rts
 
 ; Deselect the SD card interface board
 
 deselect:
-        jsr     spi_deselect
+        jsl     spi_deselect
         lda     #SD_FILL
-        jmp     spi_transfer        ; give SD card time to release DO
+        jsl     spi_transfer        ; give SD card time to release DO
+        rts

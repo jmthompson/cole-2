@@ -10,20 +10,27 @@
         .export vga_write
 
         .import kbd_read
-
-BELL     =  $07
-LBRACKET =  '['
+        .import vga_font
 
 DEFAULT_COLOR = $0F     ; white on black
 
 ROWS      = 25
 COLS      = 80
 ROW_SIZE  = COLS * 2
-TEXT_SIZE = ROWS * ROW_SIZE
+SCROLL_SIZE = (ROWS-1)*ROW_SIZE
 
-vga_vram    := $f030
-vga_status  := $f031
-vga_reg     := $f031
+FONT_ADDR = $3000       ; Location of the font in video RAM
+FONT_SIZE = $1000       ; Size of the font data
+
+tivi_data       = $00   ; VRAM r/w register
+tivi_addr       = $01   ; VRAM address (16-bit)
+tivi_ctrl       = $03   ; Control register
+tivi_cursorch   = $04   ; Cursor char
+tivi_cursorx    = $05   ; Cursor X pos
+tivi_cursory    = $06   ; Cursor Y pos
+tivi_clkdiv     = $07   ; Phi2 clock divisor
+
+tivi_base := $F060
 
         .segment "ZEROPAGE"
 
@@ -31,11 +38,10 @@ command:    .res    1
 text_attr:  .res    1
 cursor_x:   .res    1
 cursor_y:   .res    1
-vram_addr:  .res    2
 
         .segment "BUFFERS"
 
-line_buffer: .res   ROW_SIZE
+line_buffer: .res   ROW_SIZE*ROWS
 
         .segment "HIGHROM"
 
@@ -43,11 +49,9 @@ vga_reset:
         lda     #DEFAULT_COLOR
         sta     text_attr
         stz     command
-        stz     cursor_x
-        stz     cursor_y
-        jsr     cursor_on       ; turn on the cursor
-        jsr     move_cursor     ; move it to 0,0
+        jsr     load_font
         jsr     clear_screen
+        jsr     cursor_on       ; turn on the cursor
         rtl
 
 vga_write:
@@ -62,9 +66,9 @@ vga_write:
         pha
         jsr     calc_vram_ptr
         pla
-        sta     vga_vram
+        sta     tivi_base+tivi_data
         lda     text_attr
-        sta     vga_vram
+        sta     tivi_base+tivi_data
         jsr     cursor_forward
         bra     @exit
 @ctrl:  cmp     #1
@@ -92,34 +96,53 @@ vga_write:
         stz     command
         bra     @exit
 
+load_font:
+        longmx
+        ldaw    #FONT_ADDR
+        sta     tivi_base+tivi_addr
+        shortm
+        ldxw    #0
+@load:  lda     f:vga_font,x
+        sta     tivi_base+tivi_data
+        inx
+        cpxw    #FONT_SIZE
+        bne     @load
+        shortx
+        rts
+
 clear_screen:
-        ldx     #1              ; vram lo
-        lda     #<(TEXT_SIZE-1)
-        jsr     set_register
-        inx                     ; vram hi
-        lda     #>(TEXT_SIZE-1)
-        jsr     set_register
+        stz     tivi_base+tivi_addr
+        stz     tivi_base+tivi_addr+1
+        lda     text_attr
+        xba
+        lda     #' '
         ldy     #ROWS
 @row:   ldx     #COLS
-@col:   lda     #' '
-        sta     vga_vram
-        lda     text_attr
-        sta     vga_vram
+@col:   sta     tivi_base+tivi_data
+        xba
+        sta     tivi_base+tivi_data
+        xba
         dex
         bne     @col
         dey
         bne     @row
-        rts
+        stz     cursor_x
+        stz     cursor_y
+        jmp     move_cursor         ; reset cursor to upper left
 
 cursor_on:
-        ldx     #3      ; cursor control reg
-        lda     #7      ; cursor on, blinking underline
-        jmp     set_register
+        lda     tivi_base+tivi_ctrl
+        ora     #2
+        sta     tivi_base+tivi_ctrl
+        lda     #'_'
+        sta     tivi_base+tivi_cursorch
+        rts
 
 cursor_off:
-        ldx     #3      ; cursor control reg
-        lda     #0      ; no cursor
-        jmp     set_register
+        lda     tivi_base+tivi_ctrl
+        and     #%11111101
+        sta     tivi_base+tivi_ctrl
+        rts
 
 cursor_backward:
         dec     cursor_x
@@ -150,68 +173,42 @@ cursor_forward:
 ;;
 ; Move cursor to cursor_x,cursor_y
 ;
-; Trashes A,X
+; Trashes A
 ;
 move_cursor:
-        ldx     #4      ; cursor X register
         lda     cursor_x
-        jsr     set_register
-        ldx     #5      ; cursor Y register
+        sta     tivi_base+tivi_cursorx
         lda     cursor_y
-        jmp     set_register
-
-read_line:
-        ldx     #0
-@loop:  lda     vga_vram
-        sta     line_buffer,x
-        inx
-        cpx     #ROW_SIZE
-        bne     @loop
-        rts
-
-write_line:
-        ldx     #0
-@loop:  lda     line_buffer,x
-        sta     vga_vram
-        inx
-        cpx     #ROW_SIZE
-        bne     @loop
-        rts
-
-blank_line:
-        ldx     #0
-        lda     text_attr
-        xba
-        lda     #' '
-@loop:  sta     vga_vram
-        xba
-        sta     vga_vram
-        xba
-        inx
-        cpx     #COLS
-        bne     @loop
+        sta     tivi_base+tivi_cursory
         rts
 
 scroll_up:
-        ldy     #1
-@line:  ldx     #0
-        phy
-        phy
-        jsr     calc_vram_ptr
-        jsr     read_line
-        ply
-        dey
-        ldx     #0
-        jsr     calc_vram_ptr
-        jsr     write_line
-        ply
-        iny
-        cpy     #ROWS
-        bne     @line
-        ldx     #0
-        ldy     #ROWS-1
-        jsr     calc_vram_ptr
-        jmp     blank_line
+        longx
+        ldx     line_base+2
+        stx     tivi_base+tivi_addr   ; Read starting at line 1
+        ldxw    #SCROLL_SIZE
+@read:  lda     tivi_base+tivi_data
+        sta     line_buffer,x
+        dex
+        bne     @read
+        stx     tivi_base+tivi_addr   ; Write back starting at line 0
+        ldxw    #SCROLL_SIZE
+@write: lda     line_buffer,x
+        sta     tivi_base+tivi_data
+        dex
+        bne     @write
+        shortx
+        lda     text_attr
+        xba
+        lda     #' '
+        ldx     #COLS
+@blank: sta     tivi_base+tivi_data
+        xba
+        sta     tivi_base+tivi_data
+        xba
+        dex
+        bne     @blank
+        rts
 
 ;;
 ; Calculate VRAM address of col/row in X/Y
@@ -220,47 +217,20 @@ scroll_up:
 ;
 calc_vram_ptr:
         longm
-        txa
-        asl
-        sta     vram_addr
         tya
         asl
         tay
-        lda     line_base,y
-        sec
-        sbc     vram_addr
-        sta     vram_addr
+        txa
+        asl
+        clc
+        adc     line_base,y
+        sta     tivi_base+tivi_addr
         shortm
-        ; fall through
-
-;;
-; Set VRAM pointer to current cursor position
-;
-; loc = 2 * ((row * 80) + col)
-;
-; Trashes C, X
-;
-set_vram_ptr:
-        ldx     #1          ; vram ptr lo
-        lda     vram_addr
-        jsr     set_register
-        inx                 ; vram ptr hi
-        lda     vram_addr+1
-        ; fall through
-
-;;
-; Store value in A to register in X
-;
-set_register:
-        sei
-        stx     vga_reg
-        sta     vga_reg
-        cli
         rts
 
         .segment "LOWROM"
 
 line_base:
         .repeat ROWS, i
-        .word   TEXT_SIZE-1-(ROW_SIZE*i)
+        .word   ROW_SIZE*i
         .endrepeat

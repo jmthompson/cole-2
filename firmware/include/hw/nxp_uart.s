@@ -162,7 +162,8 @@ nxpipirq = %10000000    ;input port change
 ;
 ; IRQ mask
 ;
-nxpiqmsk = nxpatirq|nxparirq|nxpbtirq|nxpbrirq|nxpctirq
+;nxpiqmsk = nxpatirq|nxparirq|nxpbtirq|nxpbrirq|nxpctirq
+nxpiqmsk = nxparirq|nxpbrirq|nxpctirq
 ;
 ; OPx bits
 ;

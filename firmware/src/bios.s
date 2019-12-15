@@ -13,8 +13,11 @@
         .import monitor_start
         .import monitor_brk
         .import monitor_nmi
+        .import spi_init
+        .import spi_irq
         .import via_init
         .import via_irq
+        .import device_manager_init
 
         .import console_init
         .import console_attach
@@ -23,6 +26,11 @@
         .import console_readln
         .import console_write
         .import console_writeln
+
+        .import install_device
+        .import remove_device
+        .import find_device
+        .import call_device
 
         .import getc_seriala
         .import putc_seriala
@@ -213,6 +221,10 @@ syscall_table:
         syscall     write_seriala, 0
         syscall     read_serialb, 0
         syscall     write_serialb, 0
+        syscall     install_device, 4
+        syscall     remove_device, 0
+        syscall     find_device, 4
+        syscall     call_device, 4
 
 syscall_max = (*-syscall_table)/4
 
@@ -257,7 +269,7 @@ syscall_dispatch:
 
         shortm
 
-        lda     #KERNEL_DB
+        lda     #BIOS_DB
         pha
         plb                     ; Set kernel data bank
 
@@ -347,20 +359,23 @@ sysreset:
         xce
 
         longm
-        ldaw    #KERNEL_DP
+        ldaw    #BIOS_DP
         tcd
         ldaw    #STACKTOP
         tcs
         shortm
 
-        lda     #KERNEL_DB
+        lda     #BIOS_DB
         pha
         plb
 
         lda     #$5C                ; JML $xxyyzz
         sta     syscall_trampoline  ; Init syscall trampoline vector
 
+        jsl     device_manager_init
+        
         jsr     via_init
+        jsr     spi_init
         jsr     uart_init
         jsr     kbd_init
 
@@ -380,10 +395,10 @@ sysnmi:
         pha
         phx
         phy
-        ldaw    #KERNEL_DP
+        ldaw    #BIOS_DP
         tcd
         shortmx
-        lda     #KERNEL_DB
+        lda     #BIOS_DB
         pha
         plb
         cli
@@ -396,13 +411,14 @@ sysirq:
         pha
         phx
         phy
-        ldaw    #KERNEL_DP
+        ldaw    #BIOS_DP
         tcd
         sep     #$30
-        pha                 ; Low byte of KERNEL_DP will always be $00
+        pha                 ; Low byte of BIOS_DP will always be $00
         plb                 ; Set interrupt data bank
 
         jsr     via_irq
+        jsr     spi_irq
         jsr     uart_irq
 
         rep     #$30
@@ -421,10 +437,10 @@ sysbrk:
         pha
         phx
         phy
-        ldaw    #KERNEL_DP
+        ldaw    #BIOS_DP
         tcd
         shortmx
-        lda     #KERNEL_DB
+        lda     #BIOS_DB
         pha
         plb
         cli

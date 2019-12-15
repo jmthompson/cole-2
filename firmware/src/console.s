@@ -49,7 +49,8 @@ console_attach:
         cmp     #0
         bne     @vt100
         set_vector  reset_vec, vga_reset
-        set_vector  read_vec, kbd_read
+        ;set_vector  read_vec, kbd_read
+        set_vector  read_vec, getc_seriala
         set_vector  write_vec, vga_write
         bra     @cont
 @vt100: set_vector  reset_vec, vt100_reset

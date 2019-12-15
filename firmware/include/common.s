@@ -3,20 +3,27 @@
         .i8
 
         .include "sys/syscall.s"
+        .include "sys/error.s"
 
-        .import __SYSDP_START__
+        .import __BIOS_DP_START__
 
-KERNEL_DB = $00
-KERNEL_DP = __SYSDP_START__
+BIOS_DB = $00
+BIOS_DP = __BIOS_DP_START__
 
 .macro  set_kernel_dp
         longm
         phd
         pha
-        ldaw    #KERNEL_DP
+        ldaw    #BIOS_DP
         tcd
         pla
         shortm
+.endmacro
+
+.macro  syserr  code
+        lda     #code
+        sec
+        rtl
 .endmacro
 
 ; Increment a 32-bit value in memory
@@ -138,7 +145,7 @@ KERNEL_DP = __SYSDP_START__
 .endmacro
 
 .macro  shortx
-        rep     #$10
+        sep     #$10
 .endmacro
 
 .macro  shortmx

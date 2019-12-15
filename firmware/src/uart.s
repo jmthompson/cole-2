@@ -5,6 +5,7 @@
 
         .include "common.s"
         .include "hw/nxp_uart.s"
+        .include "sys/devices.s"
 
         .import set_led
 
@@ -19,7 +20,7 @@
 
 buffer_size = 256
 
-nxp_base := $F020
+nxp_base := $F040
 
         .segment "ZEROPAGE"
 
@@ -57,6 +58,42 @@ rxb_ibuf: .res    buffer_size
 
         .segment "LOWROM"
 
+;;
+; Device descriptors for both serial ports
+;
+;com1_device:
+;        .byte   "COM1", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+;        .byte   DEVICE_TYPE_SERIAL_PORT
+;        .byte   11  ; number of functions
+;
+;        device_function startup_seriala
+;        device_function shutdown_seriala
+;        device_function 0
+;        device_function 0
+;        device_function getc_seriala
+;        device_function putc_seriala
+;        device_function read_seriala
+;        device_function write_seriala
+;        device_function rdcheck_seriala
+;        device_function wrcheck_seriala
+;        device_function set_params_seriala
+;
+;com2_device:
+;        .byte   "COM2", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+;        .byte   DEVICE_TYPE_SERIAL_PORT
+;        .byte   11  ; number of functions
+;
+;        device_function startup_serialb
+;        device_function shutdown_serialb
+;        device_function 0
+;        device_function 0
+;        device_function getc_serialb
+;        device_function putc_serialb
+;        device_function read_serialb
+;        device_function write_serialb
+;        device_function rdcheck_serialb
+;        device_function wrcheck_serialb
+;        device_function set_params_serialb
 ;
 ; Initialize the UART as well as our Rx buffers and the system timekeeping
 ;
@@ -110,13 +147,13 @@ uart_irq:
         jsr     timer_irq
 :       bit     #nxpatirq
         beq     :+
-        jsr     txa_irq
+        ;jsr     txa_irq
 :       bit     #nxparirq
         beq     :+
         jsr     rxa_irq
 :       bit     #nxpbtirq
         beq     :+
-        jsr     txb_irq
+        ;jsr     txb_irq
 :       bit     #nxpbrirq
         beq     @done
         jsr     rxb_irq
@@ -126,7 +163,7 @@ uart_irq:
 ; Timer interrupt handler
 ;
 timer_irq:
-        bit     nxp_base+nx_rct     ; rest the interrupt
+        bit     nxp_base+nx_rct     ; reset the interrupt
         inc32   jiffies
         pha
         lda     jiffies
@@ -271,24 +308,31 @@ getc_serialb:
 ; have an empty slot before returning.
 ;
 putc_seriala:
-        phx
-        ldx     txa_wri
-        inx
-@wait:  cpx     txa_rdi             ; is the buffer full?
-        bne     @store              ; if no then store
-        wai                         ; yes, so wait for an interrupt to hopefully clear some space
-        bra     @wait               ; and then check again
-@store: dex
-        sta     txa_ibuf,x          ; Store the byte in the output buffer
-        inx
-        stx     txa_wri             ; ... and update write index
-        lda     #$80
-        tsb     txa_on              ; is the transmitter enabled?
-        bne     :+                  ; if yes, we're done
-        lda     #nxpcrtxe
-        sta     nxp_base+nx_cra     ; Enable transmitter
-:       plx
+        xba
+@loop:  lda     nxp_base+nx_sra
+        bit     #nxptxdr            ; is fifo space available?
+        beq     @loop               ; nope, so wait
+        xba
+        sta     nxp_base+nx_fifoa
         rtl
+;        phx
+;        ldx     txa_wri
+;        inx
+;@wait:  cpx     txa_rdi             ; is the buffer full?
+;        bne     @store              ; if no then store
+;        ;wai                         ; yes, so wait for an interrupt to hopefully clear some space
+;        bra     @wait               ; and then check again
+;@store: dex
+;        sta     txa_ibuf,x          ; Store the byte in the output buffer
+;        inx
+;        stx     txa_wri             ; ... and update write index
+;        lda     #$80
+;        tsb     txa_on              ; is the transmitter enabled?
+;        bne     :+                  ; if yes, we're done
+;        lda     #nxpcrtxe
+;        sta     nxp_base+nx_cra     ; Enable transmitter
+;:       plx
+;        rtl
 
 ;
 ; Transmit character in A on serial channel B. This is a blocking
@@ -301,7 +345,7 @@ putc_serialb:
         inx
 @wait:  cpx     txb_rdi             ; is the buffer full?
         bne     @store              ; if no then store
-        wai                         ; yes, so wait for an interrupt to hopefully clear some space
+        ;wai                         ; yes, so wait for an interrupt to hopefully clear some space
         bra     @wait               ; and then check again
 @store: dex
         sta     txb_ibuf,x          ; Store the byte in the output buffer

@@ -3,3 +3,4 @@
 *.map
 *.o
 buildinfo.s
+vga_font.s

@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+#
+# Convert a font file from a png image to a
+# table in a ca65 source file.
+
+use strict;
+use warnings;
+
+use Image::Magick;
+
+my $font_file = shift @ARGV;
+die "Must specify a font image file\n" unless $font_file;
+
+# the font image has a right and bottom padding of 1px
+my $width = 9;
+my $height = 17;
+
+my $img = Image::Magick->new();
+die if $img->Read($font_file);
+
+print qq|; Auto-generated from $font_file by gen_font
+
+.export vga_font
+.segment "HIGHROM"
+.align 256
+
+vga_font:
+|;
+
+for (my $ch = 0 ; $ch < 256 ; $ch++) {
+    my @bytes;
+
+    for (my $line = 0 ; $line < 16 ; $line++) {
+        my $byte = 0;
+
+        for (my $col = 7 ; $col >= 0 ; $col--) {
+            my $y = (int($ch / 16) * $height) + $line;
+            my $x = (($ch % 16) * $width) + $col + 1;
+            my @pixels = $img->GetPixel(x => $x, y => $y);
+            my $bit = ($pixels[0] == 1);
+
+            $byte = ($byte << 1) | $bit;
+        }
+
+        push @bytes, sprintf('$%02X', $byte);
+    }
+
+    print ".byte " . join(',', @bytes) . sprintf(' ; ch=$%02X', $ch) . "\n";
+}

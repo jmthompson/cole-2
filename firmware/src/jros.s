@@ -6,18 +6,14 @@
         .include "common.s"
         .include "sys/console.s"
 
-        .import console_read
-        .import console_write
         .import sdcard_driver
 
         .export jros_init
-        .export trampoline
-        .exportzp device_cmd
 
         .segment "ZEROPAGE"
 
-device_cmd: .res 2
-device: .res    2
+device_cmd: .res 4
+device: .res    4
 drive:  .res    2
 unit:   .res    2
 
@@ -34,7 +30,7 @@ block_buffer:
         .res    512
 
 trampoline:
-        .res    2
+        .res    4
 
 ; The device list is a list of pointers to device driver
 ; structure.
@@ -86,8 +82,11 @@ jros_init:
         sta     num_drives
         sta     num_volumes
 
-        lda     #<sdcard_driver
-        ldx     #>sdcard_driver
+        lda     #$5C        ; JML
+        sta     trampoline
+
+        pea     .hiword(sdcard_driver)
+        pea     .loword(sdcard_driver)
         jsr     register_device
 
         puteol
@@ -102,17 +101,21 @@ jros_init:
 
 ; Register a device.
 ;
-; A/X = pointer (low/hi) to driver description block
+; On entry four byte pointer to driver block is on the stack
 ;
 ; On exit carry is set on failure and clear on success
 
 register_device:
-        sta     device
-        stx     device+1
-
         lda     num_devices
         cmp     #MAX_DEVICES
         beq     @error
+
+        longm
+        lda     3,s
+        sta     device
+        lda     5,s
+        sta     device+2
+        shortm
 
         ldy     #1      ; INIT
         jsr     call_device
@@ -254,25 +257,36 @@ select_drive:
 ; command block in A/X.
 
 call_device:
+        longm
+        lda     3,s
         sta     device_cmd
-        stx     device_cmd+1
+        lda     5,s
+        sta     device_cmd+1
+        shortm
         tya
         asl
+        asl
         tay
-;        lda     (device),Y
-;        sta     trampoline
-;        iny
-;        lda     (device),Y
-;        sta     trampoline+1
-;        jmp     (trampoline)
+        longm
+        lda     [device],Y
+        sta     trampoline+1
+        shortm
+        iny
+        iny
+        lda     [device],Y
+        sta     trampoline+3
+        jml     trampoline
 
 ; Print the name of the currently selected device
 
 print_device_name:
-        ldy     #1
-        lda     (device),Y
-        tax
+        longm
+        ldy     #2
+        lda     [device],Y
         dey
-        lda     (device),Y
-;        jsl     console_writeln
+        dey
+        lda     [device],Y
+        pha
+        shortm
+        call    SYS_CONSOLE_WRITELN
         rts
