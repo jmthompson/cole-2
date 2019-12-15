@@ -4,7 +4,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 1 6
+Sheet 1 7
 Title "COLE-2 Single Board Computer"
 Date ""
 Rev "2"
@@ -29,8 +29,8 @@ $EndSheet
 $Sheet
 S 950  3400 2500 1750
 U 5B9337AE
-F0 "VIA and SPI" 39
-F1 "via.sch" 39
+F0 "I/O components" 39
+F1 "io.sch" 39
 $EndSheet
 $Sheet
 S 3950 3400 2550 1750
@@ -43,5 +43,11 @@ S 950  5650 2500 1350
 U 5D58F4B4
 F0 "Serial Ports" 50
 F1 "serial.sch" 50
+$EndSheet
+$Sheet
+S 6800 950  2650 1850
+U 5E07E1E4
+F0 "Sheet5E07E1E3" 50
+F1 "ports.sch" 50
 $EndSheet
 $EndSCHEMATC
