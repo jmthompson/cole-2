@@ -5,7 +5,6 @@
 #include "keyboard.h"
 #include "pins.h"
 #include "ps2.h"
-#include "sr.h"
 #include "key_codes.h"
 #include "scan_codes.h"
 #include "key_map.h"
@@ -16,6 +15,10 @@ static volatile uint8_t e1_bytes;   // How many bytes of 0xE1 sequence left to s
 
 static volatile uint8_t led_state;
 static volatile uint8_t update_leds;
+
+static void srQueueByte(uint8_t data) {
+        // temp do nothing
+}
 
 static void putKey(uint8_t scancode) {
 
@@ -61,7 +64,6 @@ void kbdUpdate(void)
         }
     }
 }
-
 
 // normal code
 // $E0 + code

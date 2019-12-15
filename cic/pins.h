@@ -5,13 +5,14 @@
 
 /* Port B pin assignments */
 
-#define PB_SR_DATA  BIT(0)  // Shift register data line
-#define PB_SR_CLK   BIT(1)  // Shift register data line
-#define PB_SS       BIT(2)  // SD card slave select
-#define PB_MOSI     BIT(3)  // SD card MOSI
-#define PB_MISO     BIT(4)  // SD card MISO
-#define PB_SCLK     BIT(5)  // SD card SCLK
-// PB6 & PB7 are the external oscillator
+#define PB_NMI      BIT(0)  // CPU /NMI
+#define PB_SPIINT   BIT(1)  // SPI interrupt to system
+#define PB_SS       BIT(2)  // SPI SS
+#define PB_MOSI     BIT(3)  // SPI MOSI
+#define PB_MISO     BIT(4)  // SPI MISO
+#define PB_SCLK     BIT(5)  // SPI SCLK
+#define PB_RESET    BIT(6)  // System RESET
+#define PB_RESETB   BIT(7)  // System /RESET
 
 /* Port C pin assignments */
 
@@ -21,16 +22,17 @@
 #define PC_GAME_DATA1 BIT(3)    // Game pad #1 data signal
 #define PC_DATA_RDY   BIT(4)    // Data ready signal to VIA
 #define PC_DATA_ACK   BIT(5)    // Data ack signal from VIA
-
-// PC7 is reset
+#define PC_RESET_SW   BIT(6)    // reset switch
 
 /* Port D pin assignments */
 
-// PD0,PD1,PD4 are serial
+#define PD_UNUSED0      BIT(0)  // unused
+#define PD_UNUSED1      BIT(1)  // unused
 #define PD_KBD_CLK      BIT(2)  // Keyboard clock line
 #define PD_MOUSE_CLK    BIT(3)  // Mouse clock line
+#define PD_UNUSED4      BIT(4)  // unused
 #define PD_KBD_DATA     BIT(5)  // Keyboard data line
 #define PD_MOUSE_DATA   BIT(6)  // Mouse data line
-// PD7 open
+#define PD_UNUSED7      BIT(7)  // unused
 
 #endif // __PINS_H

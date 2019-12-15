@@ -1,7 +1,7 @@
 # Makefile:
 # Make m328p firmware for Gir
 
-TARGET=avr
+TARGET=cic
 
 MCU=atmega328p
 FREWQ=16000000
@@ -20,7 +20,7 @@ LDFLAGS = -Wl,-Map,$(TARGET).map -mmcu=$(MCU) -lm $(LIBS)
 
 #################################################################################
 
-SRC	=	main.c ps2.c sr.c timers.c keyboard.c
+SRC	=	main.c ps2.c timers.c keyboard.c
  
 OBJ	=	$(SRC:.c=.o)
 
@@ -57,12 +57,12 @@ clean:
 depend:
 	makedepend -Y $(SRC)
 
-.PHONEY:	upload
-upload:	$(TARGET).bin
-	@minipro -p atmega328p -I -c code -w $(TARGET).bin
+.PHONEY:	prog
+prog:	$(TARGET).bin
+	@minipro -p ATMEGA328P@DIP28 -c code -w $(TARGET).bin
 	@echo Done.
 
 .PHONEY:	fuses
 fuses:	fuses.txt
-	@minipro -p atmega328p -I -c config -w fuses.txt
+	@minipro -p ATMEGA328P@DIP28 -c config -w fuses.txt
 	@echo Done.

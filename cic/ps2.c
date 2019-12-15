@@ -2,7 +2,6 @@
 #include <avr/interrupt.h>
 
 #include "keyboard.h"
-#include "sr.h"
 #include "pins.h"
 #include "ps2.h"
 #include "timers.h"
