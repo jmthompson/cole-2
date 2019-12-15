@@ -13,4 +13,9 @@ D COLE System Controller on Xilinx XC9572XL-VQ44
 F https://www.xilinx.com/support/documentation/data_sheets/ds057.pdf
 $ENDCMP
 #
+$CMP SPI65B
+D SPI/65B on Xilinx XC9572XL-VQ44
+F https://www.xilinx.com/support/documentation/data_sheets/ds057.pdf
+$ENDCMP
+#
 #End Doc Library

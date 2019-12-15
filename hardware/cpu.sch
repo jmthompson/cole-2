@@ -409,17 +409,6 @@ Wire Wire Line
 Text GLabel 10050 1600 2    39   Output ~ 0
 ~RESET
 $Comp
-L custom_chips:CSC U?
-U 1 1 5DF7979C
-P 6550 2900
-F 0 "U?" H 6900 4150 50  0000 C CNN
-F 1 "CSC" H 6550 2900 50  0000 C CNN
-F 2 "Package_QFP:TQFP-44_10x10mm_P0.8mm" H 6550 2850 50  0001 C CNN
-F 3 "https://www.xilinx.com/support/documentation/data_sheets/ds057.pdf" H 6550 2850 50  0001 C CNN
-	1    6550 2900
-	1    0    0    -1  
-$EndComp
-$Comp
 L power:+3V3 #PWR?
 U 1 1 5DF82880
 P 6550 950
@@ -763,4 +752,15 @@ Wire Wire Line
 	8850 3650 9100 3650
 Text GLabel 8850 3650 0    39   Input ~ 0
 TDO
+$Comp
+L custom_chips:CSC U?
+U 1 1 5E4F0787
+P 6550 2900
+F 0 "U?" H 6550 4381 50  0000 C CNN
+F 1 "CSC" H 6550 4290 50  0000 C CNN
+F 2 "Package_QFP:TQFP-44_10x10mm_P0.8mm" H 6550 2850 50  0001 C CNN
+F 3 "https://www.xilinx.com/support/documentation/data_sheets/ds057.pdf" H 6550 2850 50  0001 C CNN
+	1    6550 2900
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
