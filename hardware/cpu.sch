@@ -4,7 +4,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 2 7
+Sheet 2 8
 Title "CPU and System Controller"
 Date ""
 Rev ""
@@ -230,20 +230,20 @@ VPA
 Wire Wire Line
 	3300 3700 3050 3700
 $Comp
-L Device:R_Network06_US RN?
+L Device:R_Network07_US RN?
 U 1 1 5BAB6B12
 P 5600 6250
 F 0 "RN?" V 5900 6250 50  0000 C CNN
-F 1 "4607X-101-332LF" V 5150 6200 50  0000 C CNN
-F 2 "Resistor_THT:R_Array_SIP7" V 5975 6250 50  0001 C CNN
+F 1 "4608X-101-332LF" V 5150 6200 50  0000 C CNN
+F 2 "Resistor_THT:R_Array_SIP8" V 5975 6250 50  0001 C CNN
 F 3 "https://www.mouser.com/datasheet/2/54/4600x-776645.pdf" H 5600 6250 50  0001 C CNN
 	1    5600 6250
 	0    -1   -1   0   
 $EndComp
-Text GLabel 6050 6050 2    39   Output ~ 0
+Text GLabel 6050 5950 2    39   Output ~ 0
 ~INTR3
 Wire Wire Line
-	5800 6050 6050 6050
+	5800 5950 6050 5950
 $Comp
 L power:GND #PWR?
 U 1 1 5C149A7F
@@ -705,4 +705,8 @@ $EndComp
 Connection ~ 3900 1450
 Wire Wire Line
 	3900 1450 3900 1650
+Wire Wire Line
+	5800 6050 6050 6050
+Text GLabel 6050 6050 2    39   Output ~ 0
+RESET
 $EndSCHEMATC
