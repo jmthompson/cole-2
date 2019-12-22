@@ -18,6 +18,7 @@ module tivi (
 );
 
 wire clk;
+wire locked;
 wire reset;
 wire cs;
 
@@ -80,7 +81,7 @@ SB_IO #(
 pll u_pll(
     .clock_in(CLK16),
     .clock_out(clk),
-    .locked()
+    .locked(locked)
 );
 
 reg pixel_clk;
@@ -144,6 +145,7 @@ vga vga(
  */
 bus _bus(
     .clk(clk),
+    .locked(locked),
     .reset(reset),
     .cs(cs),
     .rwb(RWB),

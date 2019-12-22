@@ -2,6 +2,7 @@
 /* verilator lint_off UNUSED */
 module bus (
     input wire clk,
+    input wire locked,
     input wire reset,
     input wire cs,
     input wire rwb,
@@ -54,7 +55,9 @@ reg vram_auto_inc;
  */
 always @(posedge clk)
 begin
-    if (reset == 1'b1) begin
+    if (!locked) begin
+        clk_register <= 24;
+    end else if (reset == 1'b1) begin
         dout <= 8'b0000_0000;
         vaddr <= 14'b00_0000_0000_0000;
         vram_auto_inc <= 1'b1;
@@ -120,10 +123,7 @@ end
  */
 always @(posedge clk)
 begin
-    if (reset == 1'b1) begin
-        phi2_ctr <= 3'b0;
-        phi2 <= 1'b0;
-    end else begin
+    if (locked) begin
         if (phi2_ctr == phi2_div) begin
             phi2_ctr <= 0;
             phi2_div <= clk_register;
