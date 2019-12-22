@@ -4,7 +4,7 @@
 TARGET=cic
 
 MCU=atmega328p
-FREWQ=16000000
+FREWQ=8000000
 
 # Debug
 #DEBUG	= -gstabs
@@ -20,7 +20,7 @@ LDFLAGS = -Wl,-Map,$(TARGET).map -mmcu=$(MCU) -lm $(LIBS)
 
 #################################################################################
 
-SRC	=	main.c ps2.c timers.c keyboard.c
+SRC	=	main.c ps2.c spi.c system.c timers.c
  
 OBJ	=	$(SRC:.c=.o)
 
