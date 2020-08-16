@@ -50,11 +50,11 @@ set_io --warn-no-port DB[3] E1
 set_io --warn-no-port DB[2] G2
 set_io --warn-no-port DB[1] H1
 set_io --warn-no-port DB[0] J1
-set_io --warn-no-port PHI2 H2
+set_io --warn-no-port CSB H2
 
 # Right side of board
-set_io --warn-no-port CSB H9
-set_io --warn-no-port RWB D9
+set_io --warn-no-port RDB H9
+set_io --warn-no-port WRB D9
 set_io --warn-no-port RESETB D8
 set_io --warn-no-port VSYNC C9
 set_io --warn-no-port HSYNC A9

@@ -15,9 +15,9 @@
 #  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 PROJ := tivi
-TB   := vga_tb
+TB   := bus_tb vga_tb
 
-VERILOG_SRC := tivi.v pll.v bus.v ram.v fb.v vga.v
+VERILOG_SRC := tivi.v pll.v bus.v ram.v vga.v vga_timing.v
 PIN_DEF     := pins.pcf
 DEVICE      := lp8k
 

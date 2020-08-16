@@ -4,11 +4,11 @@
 module tivi (
     input wire CLK16,    // 16MHz clock
     input wire CSB,
-    input wire RWB,
+    input wire RDB,
+    input wire WRB,
     input wire [3:0] RS,
     inout wire [7:0] DB,
     input wire RESETB,
-    output wire PHI2,
     output wire VSYNC,
     output wire HSYNC,
     output wire [1:0] RED,
@@ -18,23 +18,7 @@ module tivi (
 );
 
 wire clk;
-wire locked;
 wire reset;
-wire cs;
-
-wire hsync;
-wire vsync;
-wire hblank;
-wire vblank;
-wire [9:0] x;
-wire [8:0] y;
-
-// Active high chip select
-assign cs = !CSB;
-
-// Hsync and Vsync are negative polarity
-assign HSYNC = ~hsync;
-assign VSYNC = vsync;
 
 // Active high reset for core logic
 assign reset = !RESETB;
@@ -43,25 +27,19 @@ assign reset = !RESETB;
 assign USBPU = 0;
 
 wire vid_mode;
-
-// Cursor
+wire blink_on;
 wire cursor_on;
 wire [6:0] cursor_x;
 wire [4:0] cursor_y;
 wire [7:0] cursor_ch;
+wire [3:0] hshift;
 
-/**
- * Create the bidirectional data bus
- */
-
+// Bidirectional data bus
 wire [7:0] din;
 wire [7:0] dout;
 wire dout_en;
 
-// Enable output only during a valid read cycle
-assign dout_en = PHI2 && RWB && cs;
-
-/**
+/*
  * Instantiate the data bus pins as bidirectional
  */
 
@@ -80,89 +58,130 @@ SB_IO #(
  */
 pll u_pll(
     .clock_in(CLK16),
-    .clock_out(clk),
-    .locked(locked)
+    .clock_out(clk)
 );
 
-reg pixel_clk;
+wire [12:0] saddr;
+wire [7:0] sdata;
+wire [10:0] caddr;
+wire [7:0] cdata;
+wire [10:0] paddr;
+wire [7:0] pdata;
+wire [11:0] faddr;
+wire [7:0] fdata;
 
-always @(posedge clk)
-begin
-    if (reset == 1'b1)
-        pixel_clk <= 0;
-    else
-        pixel_clk <= ~pixel_clk;
-end
+wire [13:0] cpu_addr;
+wire [7:0] cpu_data;
+wire sram_wen;
+wire cram_wen;
+wire pram_wen;
+wire fram_wen;
 
-/**
- * Frame buffer
- */
+wire hblank;
+wire vblank;
+wire [8:0] vcount;
+wire [9:0] hcount;
 
-wire[13:0] vga_addr;
-wire[13:0] cpu_addr;
-wire[7:0] fb_data_in;
-wire[7:0] fb_data_out;
-wire fb_wren;
-
-fb fb(
+// 8K of screen RAM
+ram #(.addr_width(13), .init_file("sram.hex")) screen_ram(
     .clk(clk),
-    .reset(reset),
-    .vga_addr(vga_addr),
-    .cpu_addr(cpu_addr),
-    .cpu_select(pixel_clk),
-    .wren(fb_wren),
-    .data_in(fb_data_in),
-    .data_out(fb_data_out)
+    .raddr(saddr),
+    .dout(sdata),
+    .waddr(cpu_addr[12:0]),
+    .din(cpu_data),
+    .wen(sram_wen)
+);
+
+// 2K of color RAM
+ram #(.addr_width(11), .init_file("cram.hex")) color_ram(
+    .clk(clk),
+    .raddr(caddr),
+    .dout(cdata),
+    .waddr(cpu_addr[10:0]),
+    .din(cpu_data),
+    .wen(cram_wen)
+);
+
+// 2K of sprite RAM
+ram #(.addr_width(11)) sprite_ram(
+    .clk(clk),
+    .raddr(paddr),
+    .dout(pdata),
+    .waddr(cpu_addr[10:0]),
+    .din(cpu_data),
+    .wen(pram_wen)
+);
+
+// 4K of font RAM
+
+ram #(.addr_width(12), .init_file("fram.hex")) font_ram(
+    .clk(clk),
+    .raddr(faddr),
+    .dout(fdata),
+    .waddr(cpu_addr[11:0]),
+    .din(cpu_data),
+    .wen(fram_wen)
 );
 
 /**
- * VGA tming generator
+ * VGA generator
  */
 
 vga vga(
-    .clk(pixel_clk),
+    .clk(clk),
     .reset(reset),
-    .mode(vid_mode),
-    .cursor_on(cursor_on),
-    .cursor_x(cursor_x),
-    .cursor_y(cursor_y),
-    .cursor_ch(cursor_ch),
-    .hsync(hsync),
-    .vsync(vsync),
-    .hblank(hblank),
-    .vblank(vblank),
-    .x(x),
-    .y(y),
-    .vdata(fb_data_out),
-    .vaddr(vga_addr),
+    .hsync(HSYNC),
+    .vsync(VSYNC),
     .red(RED),
     .green(GREEN),
     .blue(BLUE),
-);
-
-/**
- * 65xx bus interface logic
- */
-bus _bus(
-    .clk(clk),
-    .locked(locked),
-    .reset(reset),
-    .cs(cs),
-    .rwb(RWB),
-    .rs(RS),
-    .din(din),
-    .dout(dout),
-    .vaddr(cpu_addr),
-    .vdata_in(fb_data_out),
-    .vdata_out(fb_data_in),
-    .vdata_valid(pixel_clk),
-    .vwren(fb_wren),
-    .vid_mode(vid_mode),
+    .hblank(hblank),
+    .vblank(vblank),
+    .hcount(hcount),
+    .vcount(vcount),
+    .mode(vid_mode),
+    .blink_on(blink_on),
     .cursor_on(cursor_on),
     .cursor_x(cursor_x),
     .cursor_y(cursor_y),
     .cursor_ch(cursor_ch),
-    .phi2(PHI2)
+    .hshift(hshift),
+    .saddr(saddr),
+    .sdata(sdata),
+    .caddr(caddr),
+    .cdata(cdata),
+    .paddr(paddr),
+    .pdata(pdata),
+    .faddr(faddr),
+    .fdata(fdata),
+);
+
+/**
+ * Bus interface logic
+ */
+bus bus(
+    .clk(clk),
+    .reset(reset),
+    .csb(CSB),
+    .rdb(RDB),
+    .wrb(WRB),
+    .rs(RS),
+    .din(din),
+    .dout(dout),
+    .dout_en(dout_en),
+    .ram_addr(cpu_addr),
+    .ram_data(cpu_data),
+    .sram_wen(sram_wen),
+    .cram_wen(cram_wen),
+    .pram_wen(pram_wen),
+    .fram_wen(fram_wen),
+    .vid_mode(vid_mode),
+    .blink_on(blink_on),
+    .cursor_on(cursor_on),
+    .cursor_x(cursor_x),
+    .cursor_y(cursor_y),
+    .cursor_ch(cursor_ch),
+    .hshift(hshift)
 );
 
 endmodule

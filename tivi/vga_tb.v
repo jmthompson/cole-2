@@ -5,6 +5,7 @@ module vga_tb (
     input wire clk,
     input wire reset,
     input wire mode,
+    input wire blink_on,
     input wire cursor_on,
     input wire [6:0] cursor_x,
     input wire [4:0] cursor_y,
@@ -34,21 +35,16 @@ vga vga(
     .red(red),
     .green(green),
     .blue(blue),
+    .blink_on(blink_on),
     .cursor_on(cursor_on),
     .cursor_x(cursor_x),
     .cursor_y(cursor_y),
-    .cursor_ch(cursor_ch),
-    .x(x),
-    .y(y),
-    .vaddr(vaddr),
-    .vdata(vdata)
+    .cursor_ch(cursor_ch)
 );
 
 ram #(.addr_width(14), .init_file("vram-text.hex")) vram(
-    .rclk(clk),
-    .wclk(clk),
-    .raddr(vaddr),
-    .waddr(14'd0),
+    .clk(clk),
+    .addr(vaddr),
     .din(8'd0),
     .dout(vdata),
     .wen(1'b0)
