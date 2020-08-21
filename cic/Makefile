@@ -4,7 +4,8 @@
 TARGET=cic
 
 MCU=atmega328p
-FREWQ=8000000
+FREWQ=20000000
+BAUD=115200
 
 # Debug
 #DEBUG	= -gstabs
@@ -13,14 +14,14 @@ FREWQ=8000000
 
 CC	= avr-gcc
 #CFLAGS	= $(DEBUG) -O3                  -Wall -std=gnu99 -mmcu=$(MCU) -DF_CPU=$(FREWQ) $(INCLUDE)
-CFLAGS	= $(DEBUG) -O2 -mcall-prologues -Wall -std=gnu99 -mmcu=$(MCU) -DF_CPU=$(FREWQ) $(INCLUDE)
+CFLAGS	= $(DEBUG) -O2 -mcall-prologues -Wall -std=gnu99 -mmcu=$(MCU) -DF_CPU=$(FREWQ) -DBAUD=$(BAUD) $(INCLUDE)
 
 LD	= avr-gcc
 LDFLAGS = -Wl,-Map,$(TARGET).map -mmcu=$(MCU) -lm $(LIBS)
 
 #################################################################################
 
-SRC	=	main.c ps2.c spi.c system.c timers.c
+SRC	=	main.c ps2.c spi.c serial.c system.c timers.c
  
 OBJ	=	$(SRC:.c=.o)
 
@@ -58,8 +59,9 @@ depend:
 	makedepend -Y $(SRC)
 
 .PHONEY:	prog
-prog:	$(TARGET).bin
+prog:	$(TARGET).bin fuses.txt
 	@minipro -p ATMEGA328P@DIP28 -c code -w $(TARGET).bin
+	@minipro -p ATMEGA328P@DIP28 -c config -w fuses.txt
 	@echo Done.
 
 .PHONEY:	fuses

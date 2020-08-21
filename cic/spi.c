@@ -25,10 +25,10 @@ static void updateInterruptState(void)
         }
 
         if (status |= SPI_STATUS_INTERRUPTING) {
-            PORTB |= PB_SPIINT;
+            PORTB |= PC_SPIINT;
         }
         else {
-            PORTB &= ~PB_SPIINT;
+            PORTB &= ~PC_SPIINT;
         }
     }
 }
@@ -42,7 +42,7 @@ void spiInit(void)
     gamepad_in[1] = 0;
 
     // Set SPIINT, and MISO as outputs, all others are inputs
-    DDRB |= (PB_SPIINT|PB_MISO);
+    DDRB |= (PC_SPIINT|PB_MISO);
 
     //Enable SPI && interrupt enable bit
     SPCR=(1<<SPE)|(1<<SPIE);

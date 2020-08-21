@@ -13,12 +13,13 @@ void timerInit(void) {
     TCCR2A = 0;
     TCCR2B = 0;
 
-    // Initialize counter 0.
-    TCNT0  = 0;             // start count at zero
-    TCCR0A = BIT(WGM01)|BIT(COM0A0);    // CTC mode.
-    OCR0A  = 131;           // 8MHz / 1024 / 131 = 59.63 Hz.
-    OCR0B  = 0;             // Unused.
-    TIMSK0 = BIT(OCIE0A);   // enable interrupt
+    // Initialize counter 1.
+    TCCR1A = 0;
+    TCCR1B = BIT(WGM12);     // CTC mode
+    TCNT1 = 0;               // Start from 0.
+    OCR1A = 41667;           // 20MHz / 8 / 41667 = 59.99 Hz
+    OCR1B = 0;               // Unused.
+    TIMSK1 = BIT(OCIE1A);    // Enable interrupt on OCR1A compare match.
 }
 
 /**
@@ -26,7 +27,7 @@ void timerInit(void) {
  */
 uint8_t timerExpired(void)
 {
-    return ticks? 0 : 1;
+    return ticks == 0;
 }
 
 /**
@@ -36,13 +37,12 @@ void setTimer(uint8_t numTicks)
 {
     ticks = numTicks;
 
-    // Set prescaler to clk/1024 and start the timer
-    TCCR0B = BIT(CS02) | BIT(CS00);
+    TCCR1B |= BIT(CS11);
 }
 
 /**
  * Delay by up to 255 us. This is very approximate
- * and assumes an 8 MHz clock.
+ * and assumes a 20 MHz clock.
  */
 void delayMicroseconds(uint8_t x)
 {
@@ -54,12 +54,25 @@ void delayMicroseconds(uint8_t x)
     __asm__("nop\n\t");
     __asm__("nop\n\t");
     __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
+    __asm__("nop\n\t");
   }
 }
 
 /**
- * Delay by up to 255 ticks. One tick is ~1/60th of
- * a second, so the maximum delay is ~4.25 seconds.
+ * Delay by up to 255 ticks. One tick is ~1/61 of
+ * a second, so the maximum delay is ~4.16 seconds.
  */
 void delayTicks(uint8_t numTicks)
 {
@@ -71,13 +84,13 @@ void delayTicks(uint8_t numTicks)
 /**
  * Timer0 interrupt handler
  */
-ISR(TIMER0_COMPA_vect)
+ISR(TIMER1_COMPA_vect)
 {
     if (ticks) {
         --ticks;
     }
 
     if (!ticks) {
-        TCCR0B = 0; // stop the timer
+        TCCR1B = 0; // stop the timer
     }
 }

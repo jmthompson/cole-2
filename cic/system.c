@@ -7,37 +7,31 @@
 static void resetOn(void)
 {
     // Let RESET float high
-    DDRB &= ~PB_RESET;
-
-    // Pull /RESET low
-    DDRB |= PB_RESETB;
+    DDRC &= ~PC_RESET;
 }
 
 static void resetOff(void)
 {
     // Pull RESET low
-    DDRB |= PB_RESET;
-
-    // Let /RESET float high
-    DDRB &= ~PB_RESETB;
+    DDRC |= PC_RESET;
 }
 
 static void nmiOn(void)
 {
     // Pull /NMI low
-    DDRB |= PB_NMI;
+    DDRC |= PC_NMI;
 }
 
 static void nmiOff(void)
 {
     // Let /NMI float high
-    DDRB &= ~PB_NMI;
+    DDRC &= ~PC_NMI;
 }
 
 void systemInit(void)
 {
     // System interface lines are always either driven low or floating.
-    PORTB &= ~(PB_NMI|PB_RESET|PB_RESETB);
+    PORTC &= ~(PC_NMI|PC_RESET);
 
     nmiOff();
     resetOff();

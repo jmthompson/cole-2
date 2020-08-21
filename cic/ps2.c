@@ -257,6 +257,8 @@ uint8_t ps2SendByte(uint8_t port_num, uint8_t byte)
         }
     }
 
+    setIdle(port);
+
     return port->result;
 }
 
