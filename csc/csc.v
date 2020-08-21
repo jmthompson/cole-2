@@ -19,24 +19,23 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module csc (
-	 input wire A0,
-	 input wire A1,
-    input wire A5,
-    input wire A6,
-	 input wire A7,
+	 input wire A5,
+	 input wire A6,
     input wire A11,
     input wire A12,
     input wire A13,
     input wire A14,
     input wire A15,
 	 input wire [7:0] DB,
-    input wire PHI2,
     input wire RWB,
     input wire VDA,
-    input wire RESETB,
+	 input wire SYSCLK,
+    input wire RESET,
+	 output wire RESETB,
     output reg A16,
     output reg A17,
     output reg A18,
+    output reg PHI2,
     output wire RDB,
     output wire WRB,
     output wire ROMCSB,
@@ -54,7 +53,7 @@ reg A21;
 reg A22;
 reg A23;
 
-wire reset;
+reg [1:0] clock_counter;
 wire rd;
 wire wr;
 
@@ -66,7 +65,6 @@ wire io1;
 wire io2;
 wire io3;
 wire io4;
-wire io8;
 wire ram;
 wire ram1;
 wire ram2;
@@ -81,13 +79,13 @@ assign IO1SELB = !io1;
 assign IO2SELB = !io2;
 assign IO3SELB = !io3;
 assign IO4SELB = !io4;
-assign reset = !RESETB;
+assign RESETB = !RESET;
 
 // rd is only active during phi2 high
 assign rd = PHI2 && RWB;
 
 // wr is only active during phi2 high, but not for rom
-assign wr = PHI2 && !RWB && !lowrom && !highrom;
+assign wr = PHI2 && !RWB;
 
 // True if current acess is in bank 0
 assign bank0 = !A23 && !A22 && !A21 && !A20 && !A19 && !A18 && !A17 && !A16; 
@@ -111,32 +109,43 @@ assign ram2 = ram && A19;
 assign io = bank0 && A15 && A14 && A13 && A12 && !A11 && VDA;
 
 // True if I/O device 1 is being accessed
-assign io1 = io && !A7 && !A6 && !A5;
+assign io1 = io && !A6 && !A5;
 
 // True if I/O device 2 is being accessed
-assign io2 = io && !A7 && !A6 && A5;
+assign io2 = io && !A6 && A5;
 
 // True if I/O device 3 is being accessed
-assign io3 = io && !A7 && A6 && !A5;
+assign io3 = io && A6 && !A5;
 
 // True if I/O device 4 is being accessed
-assign io4 = io && !A7 && A6 && A5;
+assign io4 = io && A6 && A5;
 
-// True if I/O device 8 is being accessed
-assign io8 = io && A7 && A6 && A5;
-
-always @(posedge PHI2)
+always @(posedge SYSCLK)
 begin
-   if (reset == 1) begin
-		A16 <= A0;
-		A17 <= A1;
+   if (RESET == 1) begin
+		PHI2 <= 0;
+		clock_counter <= 2'b00;
+	end else begin
+		if (clock_counter == 2'b11) begin
+			PHI2 <= !PHI2;
+			clock_counter <= 2'b00;
+		end else
+			clock_counter <= clock_counter + 1;
+	end
+end
+	
+always @(posedge SYSCLK)
+begin
+   if (RESET == 1) begin
+		A16 <= 0;
+		A17 <= 0;
 		A18 <= 0;
 		A19 <= 0;
 		A20 <= 0;
 		A21 <= 0;
 		A22 <= 0;
 		A23 <= 0;
-	end else begin
+	end else if (PHI2 == 0) begin
 		A16 <= DB[0];
 		A17 <= DB[1];
 		A18 <= DB[2];
