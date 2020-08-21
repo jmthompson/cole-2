@@ -33,6 +33,7 @@ wire [6:0] cursor_x;
 wire [4:0] cursor_y;
 wire [7:0] cursor_ch;
 wire [3:0] hshift;
+wire [7:0] first_row;
 
 // Bidirectional data bus
 wire [7:0] din;
@@ -146,6 +147,7 @@ vga vga(
     .cursor_y(cursor_y),
     .cursor_ch(cursor_ch),
     .hshift(hshift),
+    .first_row(first_row),
     .saddr(saddr),
     .sdata(sdata),
     .caddr(caddr),
@@ -181,7 +183,8 @@ bus bus(
     .cursor_x(cursor_x),
     .cursor_y(cursor_y),
     .cursor_ch(cursor_ch),
-    .hshift(hshift)
+    .hshift(hshift),
+    .first_row(first_row)
 );
 
 endmodule

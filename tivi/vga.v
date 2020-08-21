@@ -19,6 +19,7 @@ module vga(
     input wire [4:0] cursor_y,      // Cursor vertical position (row)
     input wire [7:0] cursor_ch,     // Character code to use for cursor
     input wire [3:0] hshift,        // Horizontal shift
+    input wire [7:0] first_row,     // First row of display
 
     // Screen RAM interface
     output reg [12:0] saddr,
@@ -77,26 +78,23 @@ assign blue  = opixel[1:0];
 wire show_blink;
 assign show_blink = frame[5];
 
-wire [6:0] x;
-wire [4:0] y;
-
-assign x = hcount[9:3];     // 8 pixels per character cell
-assign y = vcount[8:4];     // 16 rows per character cell
+reg [8:0] x;
+reg [7:0] y;
 
 wire in_cursor;
-assign in_cursor = cursor_on && (x == cursor_x) && (y == cursor_y);
+assign in_cursor = cursor_on && (cursor_x == hcount[9:3]) && (cursor_y == vcount[8:4]);
 
 wire hsync_in;
 wire vsync_in;
 wire hblank_in;
 wire vblank_in;
 
-parameter DELAY = 16;
+parameter MAX_HSHIFT = 16;
 
-reg [DELAY-1:0] hsync_delayed;
-reg [DELAY-1:0] vsync_delayed;
-reg [DELAY-1:0] hblank_delayed;
-reg [DELAY-1:0] vblank_delayed;
+reg [MAX_HSHIFT-1:0] hsync_delayed;
+reg [MAX_HSHIFT-1:0] vsync_delayed;
+reg [MAX_HSHIFT-1:0] hblank_delayed;
+reg [MAX_HSHIFT-1:0] vblank_delayed;
 
 assign hsync = ~hsync_delayed[hshift];
 assign vsync = vsync_delayed[hshift];
@@ -131,6 +129,38 @@ function [5:0] get_color;
     end
 endfunction
 
+function [12:0] calculate_sram_address;
+    begin
+        if (mode == 1'b1)
+            calculate_sram_address = (y * 40) + (hcount >> 4);
+        else
+            calculate_sram_address = (y * 80) + (hcount >> 3);
+    end
+endfunction
+
+function [12:0] calculate_cram_address;
+    begin
+        calculate_cram_address = (y * 80) + (hcount >> 3);
+    end
+endfunction
+
+reg [8:0] tmp_y;
+
+always @(*)
+begin
+    if (mode == 1'b1) begin
+        tmp_y = vcount[8:1] + first_row; 
+
+        y = tmp_y > 199 ? tmp_y - 200 : tmp_y;
+        x = hcount[9:1];
+    end else begin
+        tmp_y = vcount[8:4] + first_row;
+
+        y = tmp_y > 24 ? tmp_y - 25 : tmp_y;
+        x = hcount[9:3];
+    end
+end
+
 // Handle the delayed hsync/vsync signals
 always @(posedge clk)
 begin
@@ -140,10 +170,10 @@ begin
         hblank_delayed <= 0;
         vblank_delayed <= 0;
     end else begin
-        hsync_delayed <= { hsync_delayed[DELAY-2:0], hsync_in };
-        vsync_delayed <= { vsync_delayed[DELAY-2:0], vsync_in };
-        hblank_delayed <= { hblank_delayed[DELAY-2:0], hblank_in };
-        vblank_delayed <= { vblank_delayed[DELAY-2:0], vblank_in };
+        hsync_delayed <= { hsync_delayed[MAX_HSHIFT-2:0], hsync_in };
+        vsync_delayed <= { vsync_delayed[MAX_HSHIFT-2:0], vsync_in };
+        hblank_delayed <= { hblank_delayed[MAX_HSHIFT-2:0], hblank_in };
+        vblank_delayed <= { vblank_delayed[MAX_HSHIFT-2:0], vblank_in };
     end
 end
 
@@ -159,12 +189,8 @@ end
 always @(posedge clk)
 begin
     if (state == 3'b000) begin
-        if (mode == 1'b1)
-            saddr <= ((vcount >> 1) * 40) + (hcount >> 4);
-        else
-            saddr <= ((vcount >> 4) * 80) + (hcount >> 3);
-
-        caddr <= ((vcount >> 4) * 80) + (hcount >> 3);
+        saddr <= calculate_sram_address();
+        caddr <= calculate_cram_address();
     end else if (state == 3'b010) begin
         if (in_cursor && show_blink)
             faddr <= { cursor_ch, vcount[3:0] };

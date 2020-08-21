@@ -43,7 +43,8 @@ module bus (
     output reg [6:0] cursor_x,
     output reg [4:0] cursor_y,
     output reg [7:0] cursor_ch,
-    output reg [3:0] hshift
+    output reg [3:0] hshift,
+    output reg [7:0] first_row
 );
 
 parameter FSM_SIZE    = 5;
@@ -119,6 +120,7 @@ begin
         cursor_y <= 0;
         cursor_ch <= "_";
         hshift <= 4'b0111;
+        first_row <= 8'b0000_0000;
 
         state <= IDLE;
     end else begin
@@ -146,6 +148,8 @@ begin
                         4'b0110:
                             dout <= { 3'b000, cursor_y };
                         4'b0111:
+                            dout <= first_row;
+                        4'b1000:
                             dout <= { 4'b0000, hshift };
                         default:
                             dout <= 8'b1111_1111;
@@ -176,6 +180,8 @@ begin
                         4'b0110:
                             cursor_y <= din[4:0];
                         4'b0111:
+                            first_row <= din;
+                        4'b1000:
                             hshift <= din[3:0];
                     endcase
 
