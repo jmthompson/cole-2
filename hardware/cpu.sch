@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:cole-2-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
@@ -193,18 +192,18 @@ Text GLabel 7050 3750 0    39   Input ~ 0
 A13
 Text GLabel 7050 3850 0    39   Input ~ 0
 A14
-Text GLabel 8750 3450 2    39   Input ~ 0
+Text GLabel 8750 3650 2    39   Output ~ 0
 ϕ2
 Wire Wire Line
-	8750 3450 8500 3450
-Text GLabel 8750 3350 2    39   Input ~ 0
+	8750 3650 8500 3650
+Text GLabel 8750 3550 2    39   Input ~ 0
 VDA
 Wire Wire Line
-	8750 3350 8500 3350
-Text GLabel 8750 3550 2    39   Input ~ 0
+	8750 3550 8500 3550
+Text GLabel 8750 3750 2    39   Input ~ 0
 R~W
 Wire Wire Line
-	8750 3550 8500 3550
+	8750 3750 8500 3750
 Text GLabel 8750 2800 2    39   Output ~ 0
 ~ROMCS
 Wire Wire Line
@@ -261,12 +260,8 @@ Wire Wire Line
 	7050 3250 7300 3250
 Wire Wire Line
 	7050 3350 7300 3350
-Wire Wire Line
-	7050 3450 7300 3450
 Text GLabel 7050 3350 0    39   Input ~ 0
 A6
-Text GLabel 7050 3450 0    39   Input ~ 0
-A7
 Text GLabel 3950 5850 2    39   Input ~ 0
 ~IRQ
 Wire Wire Line
@@ -525,14 +520,6 @@ Text GLabel 7050 2850 0    39   BiDi ~ 0
 D7
 Wire Wire Line
 	7050 2850 7300 2850
-Text GLabel 7050 3050 0    39   Input ~ 0
-A0
-Wire Wire Line
-	7050 3050 7300 3050
-Wire Wire Line
-	7050 3150 7300 3150
-Text GLabel 7050 3150 0    39   Input ~ 0
-A1
 $Comp
 L power:GND #PWR?
 U 1 1 5E009129
@@ -622,10 +609,10 @@ F 3 "~" H 4200 1450 50  0001 C CNN
 	1    4200 1450
 	0    1    1    0   
 $EndComp
-Text GLabel 8750 3250 2    39   Input ~ 0
+Text GLabel 8750 3450 2    39   Output ~ 0
 ~RESET
 Wire Wire Line
-	8750 3250 8500 3250
+	8750 3450 8500 3450
 Wire Wire Line
 	8500 2650 8750 2650
 Text GLabel 8750 2650 2    39   Output ~ 0
@@ -709,4 +696,12 @@ Wire Wire Line
 	5800 6050 6050 6050
 Text GLabel 6050 6050 2    39   Output ~ 0
 RESET
+Text GLabel 8750 3300 2    39   Input ~ 0
+RESET
+Wire Wire Line
+	8750 3300 8500 3300
+Text GLabel 8750 3200 2    39   Input ~ 0
+SYSCLK
+Wire Wire Line
+	8750 3200 8500 3200
 $EndSCHEMATC
