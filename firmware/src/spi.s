@@ -11,7 +11,7 @@
         .export spi_deselect
         .export spi_transfer
 
-        .import kbd_handler
+        .import cic_irq
 
 ; VIA register numbers
 spi_data   = $00    ; (R/W) SPI data register
@@ -48,8 +48,8 @@ SPI_SS3     = $08   ; /SS3
         .i8
 
 spi_init:
-        ; No interrupts, no FRX, no tristate, SPI mode 0, use external clock (3.6864 MHz)
-        lda     #SPI_ECE
+        ; Enable interrupts, no FRX, no tristate, SPI mode 0, use external clock (3.6864 MHz)
+        lda     #SPI_ECE|SPI_IER
         sta     spi_base+spi_ctrl
 
         ; Clock is phi2/2
@@ -66,8 +66,8 @@ spi_irq:
         bit     spi_base+spi_isr
         beq     @exit
 
-        ; todo, handle other possible interrupts
-        jsr     kbd_handler
+        ; TODO: handle other interrupts
+        jsr     cic_irq
  
 @exit:  rts
 

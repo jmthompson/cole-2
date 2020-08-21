@@ -9,7 +9,7 @@
 
         .import uart_init
         .import uart_irq
-        .import kbd_init
+        .import cic_init
         .import monitor_start
         .import monitor_brk
         .import monitor_nmi
@@ -318,14 +318,14 @@ syscall_dispatch:
 
         shortmx
         jsl     syscall_trampoline
+        pld
         sta     @a_reg                  ; return value of A to caller
         bcc     @noerr
         lda     @p_reg
         ora     #PREG_C                 ; set carry on return to caller
         sta     @p_reg
         
-@noerr: pld
-        longmx
+@noerr: longmx
         lda     @cf_size
         beq     @nocopy
 
@@ -377,7 +377,7 @@ sysreset:
         jsr     via_init
         jsr     spi_init
         jsr     uart_init
-        jsr     kbd_init
+        jsr     cic_init
 
         cli
 

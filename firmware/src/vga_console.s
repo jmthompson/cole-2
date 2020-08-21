@@ -8,40 +8,34 @@
 
         .export vga_reset
         .export vga_write
-
         .import kbd_read
         .import vga_font
 
 DEFAULT_COLOR = $0F     ; white on black
 
-ROWS      = 25
-COLS      = 80
-ROW_SIZE  = COLS * 2
-SCROLL_SIZE = (ROWS-1)*ROW_SIZE
+COLS = 80
+ROWS = 25
 
-FONT_ADDR = $3000       ; Location of the font in video RAM
-FONT_SIZE = $1000       ; Size of the font data
-
-tivi_data       = $00   ; VRAM r/w register
-tivi_addr       = $01   ; VRAM address (16-bit)
-tivi_ctrl       = $03   ; Control register
-tivi_cursorch   = $04   ; Cursor char
-tivi_cursorx    = $05   ; Cursor X pos
-tivi_cursory    = $06   ; Cursor Y pos
-tivi_clkdiv     = $07   ; Phi2 clock divisor
+SRAM_START = $0000      ; Starting address of screen RAM
+CRAM_START = $2000      ; Starting address of color RAM
+FRAM_START = $3000      ; Starting address of font RAM
+FONT_SIZE  = $1000      ; Size of the font data
 
 tivi_base := $F060
+
+tivi_data       = tivi_base+$00 ; VRAM r/w register
+tivi_addr       = tivi_base+$01 ; VRAM address (16-bit)
+tivi_ctrl       = tivi_base+$03 ; Control register
+tivi_cursorch   = tivi_base+$04 ; Cursor char
+tivi_cursorx    = tivi_base+$05 ; Cursor X pos
+tivi_cursory    = tivi_base+$06 ; Cursor Y pos
+tivi_first_row  = tivi_base+$07 ; First row
+tivi_hshift     = tivi_base+$08 ; Horizontal shift register
 
         .segment "ZEROPAGE"
 
 command:    .res    1
 text_attr:  .res    1
-cursor_x:   .res    1
-cursor_y:   .res    1
-
-        .segment "BUFFERS"
-
-line_buffer: .res   ROW_SIZE*ROWS
 
         .segment "HIGHROM"
 
@@ -61,14 +55,33 @@ vga_write:
         bne     @cmd
         cmp     #' '
         blt     @ctrl
-        ldx     cursor_x
-        ldy     cursor_y
-        pha
-        jsr     calc_vram_ptr
-        pla
-        sta     tivi_base+tivi_data
+
+        pha                     ; stash char to write
+
+        ldx     tivi_cursorx        ; X position in X
+        lda     tivi_cursory
+        jsr     virt_to_real    ; Get physical row for current cursor position
+        asl                     ;  convert it to an offset in the base address tables
+        tay                     ;  and stash it in Y
+
+        longm
+        txa                     ; transferr to C, clearing high byte
+        clc
+        adc     sram_base,y     ; add it to the line base
+        sta     tivi_addr
+        shortm
+        pla                     ; now retrieve char
+        sta     tivi_data       ; and write it to screen ram
+        
+        longm
+        txa                     ; get cursor X back
+        clc
+        adc     cram_base,y     ; add it to the line base
+        sta     tivi_addr
+        shortm
         lda     text_attr
-        sta     tivi_base+tivi_data
+        sta     tivi_data       ; and write attribute byte
+
         jsr     cursor_forward
         bra     @exit
 @ctrl:  cmp     #1
@@ -85,7 +98,7 @@ vga_write:
 @attr:  sta     command
         bra     @exit
 @cr:    lda     #COLS-1
-        sta     cursor_x            ; fake being at end of line
+        sta     tivi_cursorx            ; fake being at end of line
         jsr     cursor_forward      ; advance to start of next line
         bra     @exit
 @bs:    jsr     cursor_backward
@@ -98,12 +111,12 @@ vga_write:
 
 load_font:
         longmx
-        ldaw    #FONT_ADDR
-        sta     tivi_base+tivi_addr
+        ldaw    #FRAM_START
+        sta     tivi_addr
         shortm
         ldxw    #0
 @load:  lda     f:vga_font,x
-        sta     tivi_base+tivi_data
+        sta     tivi_data
         inx
         cpxw    #FONT_SIZE
         bne     @load
@@ -111,126 +124,130 @@ load_font:
         rts
 
 clear_screen:
-        stz     tivi_base+tivi_addr
-        stz     tivi_base+tivi_addr+1
-        lda     text_attr
-        xba
+        longmx
+        ldaw    #SRAM_START
+        sta     tivi_addr
+        shortm
+
+        ldxw    #ROWS*COLS
         lda     #' '
-        ldy     #ROWS
-@row:   ldx     #COLS
-@col:   sta     tivi_base+tivi_data
-        xba
-        sta     tivi_base+tivi_data
-        xba
+@sram:  sta     tivi_data
         dex
-        bne     @col
-        dey
-        bne     @row
-        stz     cursor_x
-        stz     cursor_y
-        jmp     move_cursor         ; reset cursor to upper left
+        bne     @sram
+
+        longm
+        ldaw    #CRAM_START
+        sta     tivi_addr
+        shortm
+
+        ldxw    #ROWS*COLS
+        lda     text_attr
+@cram:  sta     tivi_data
+        dex
+        bne     @cram
+
+        shortx
+
+        stz     tivi_cursorx        ; reset cursor to upper left
+        stz     tivi_cursory
+        stz     tivi_first_row
+
+        rts
 
 cursor_on:
-        lda     tivi_base+tivi_ctrl
+        lda     tivi_ctrl
         ora     #2
-        sta     tivi_base+tivi_ctrl
+        sta     tivi_ctrl
         lda     #'_'
-        sta     tivi_base+tivi_cursorch
+        sta     tivi_cursorch
         rts
 
 cursor_off:
-        lda     tivi_base+tivi_ctrl
+        lda     tivi_ctrl
         and     #%11111101
-        sta     tivi_base+tivi_ctrl
+        sta     tivi_ctrl
         rts
 
 cursor_backward:
-        dec     cursor_x
-        bpl     move_cursor
+        dec     tivi_cursorx
+        bpl     @done
         lda     #COLS-1
-        sta     cursor_x
-        dec     cursor_y
-        bpl     move_cursor
-        stz     cursor_x
-        stz     cursor_y
-        bra     move_cursor
+        sta     tivi_cursorx
+        dec     tivi_cursory
+        bpl     @done
+        stz     tivi_cursorx
+        stz     tivi_cursory
+@done:  rts
 
 cursor_forward:
-        inc     cursor_x
-        lda     cursor_x
+        inc     tivi_cursorx
+        lda     tivi_cursorx
         cmp     #COLS
-        blt     move_cursor
-        stz     cursor_x
-        inc     cursor_y
-        lda     cursor_y
+        blt     @done
+        stz     tivi_cursorx
+        inc     tivi_cursory
+        lda     tivi_cursory
         cmp     #ROWS
-        blt     move_cursor
+        blt     @done
         jsr     scroll_up
         lda     #ROWS-1
-        sta     cursor_y
-        ; fall through
-
-;;
-; Move cursor to cursor_x,cursor_y
-;
-; Trashes A
-;
-move_cursor:
-        lda     cursor_x
-        sta     tivi_base+tivi_cursorx
-        lda     cursor_y
-        sta     tivi_base+tivi_cursory
-        rts
+        sta     tivi_cursory
+@done:  rts
 
 scroll_up:
-        longx
-        ldx     line_base+2
-        stx     tivi_base+tivi_addr   ; Read starting at line 1
-        ldxw    #SCROLL_SIZE
-@read:  lda     tivi_base+tivi_data
-        sta     line_buffer,x
-        dex
-        bne     @read
-        stx     tivi_base+tivi_addr   ; Write back starting at line 0
-        ldxw    #SCROLL_SIZE
-@write: lda     line_buffer,x
-        sta     tivi_base+tivi_data
-        dex
-        bne     @write
-        shortx
-        lda     text_attr
-        xba
+        lda     tivi_first_row
+        inc
+        cmp     #ROWS
+        blt     @ok
+        lda     #0
+@ok:    sta     tivi_first_row
+
+        lda     #ROWS-1
+        jsr     virt_to_real
+        asl
+        tax
+
+        longm
+        lda     sram_base,x
+        sta     tivi_addr
+        shortm
+
+        ldy     #COLS
         lda     #' '
-        ldx     #COLS
-@blank: sta     tivi_base+tivi_data
-        xba
-        sta     tivi_base+tivi_data
-        xba
-        dex
-        bne     @blank
+@sram:  sta     tivi_data
+        dey
+        bne     @sram
+
+        longm
+        lda     cram_base,x
+        sta     tivi_addr
+        shortm
+
+        ldy     #COLS
+        lda     text_attr
+@cram:  sta     tivi_data
+        dey
+        bne     @cram
+
         rts
 
-;;
-; Calculate VRAM address of col/row in X/Y
-;
-; Trashes C,X,Y
-;
-calc_vram_ptr:
-        longm
-        tya
-        asl
-        tay
-        txa
-        asl
+virt_to_real:
         clc
-        adc     line_base,y
-        sta     tivi_base+tivi_addr
-        shortm
-        rts
+        adc     tivi_first_row
+        cmp     #ROWS
+        blt     @ok
+        sec
+        sbc     #ROWS
+@ok:    rts
 
         .segment "LOWROM"
 
-line_base:
+sram_base:
         .repeat ROWS, i
-        .word   ROW_SIZE*i
+        .word   SRAM_START+(COLS*i)
+        .endrepeat
+
+cram_base:
+        .repeat ROWS, i
+        .word   CRAM_START+(COLS*i)
         .endrepeat

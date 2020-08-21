@@ -21,6 +21,7 @@
         .import vga_reset
         .import kbd_read
         .import vga_write
+        .import get_console_sw
 
 .macro  set_vector  vector, address
         lda     #$5C    ; JML
@@ -42,7 +43,7 @@ write_vec:  .res 4
         .segment "HIGHROM"
 
 console_init:
-        lda     #0
+        jsl     get_console_sw
         jml     console_attach
 
 console_attach:

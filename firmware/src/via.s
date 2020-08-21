@@ -7,6 +7,7 @@
 
         .export via_init
         .export via_irq
+        .export get_console_sw
         .export set_led
         .export wait_ms
 
@@ -63,6 +64,11 @@ via_irq:
         ; dispatch to registered handler
  
 @exit:  rts
+
+get_console_sw:
+        lda     via_base+via_portb
+        and     #$40
+        rtl
 
 ;;
 ; Set the status of the activity LED to the value
