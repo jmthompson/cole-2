@@ -282,8 +282,8 @@ print_spaces:
         beq     @exit
         pha
         phx
-        lda     #' '
-@loop:  call    SYS_CONSOLE_WRITE
+@loop:  lda     #' '
+        call    SYS_CONSOLE_WRITE
         dex
         bne     @loop
         plx

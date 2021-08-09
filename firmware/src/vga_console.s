@@ -58,7 +58,7 @@ vga_write:
 
         pha                     ; stash char to write
 
-        ldx     tivi_cursorx        ; X position in X
+        ldx     tivi_cursorx    ; X position in X
         lda     tivi_cursory
         jsr     virt_to_real    ; Get physical row for current cursor position
         asl                     ;  convert it to an offset in the base address tables
